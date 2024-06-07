@@ -59,7 +59,7 @@ base = {
         'save_parallel': False,
         'n_reference': 8,
         'bucket': None,
-        'device': 'cuda',
+        'device': 'cpu',
         'seed': None,
     },
 
@@ -102,7 +102,7 @@ base = {
         'save_parallel': False,
         'n_reference': 8,
         'bucket': None,
-        'device': 'cuda',
+        'device': 'cpu',
         'seed': None,
     },
 
@@ -112,7 +112,7 @@ base = {
         'max_episode_length': 1000,
         'batch_size': 64,
         'preprocess_fns': [],
-        'device': 'cuda',
+        'device': 'cpu',
         'seed': None,
 
         ## sample_kwargs

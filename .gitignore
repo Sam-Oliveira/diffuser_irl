@@ -142,3 +142,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+.DS_Store
+diffuser/.DS_Store
+diffuser/environments/.DS_Store

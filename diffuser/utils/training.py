@@ -154,7 +154,7 @@ class Trainer(object):
             loads model and ema from disk
         '''
         loadpath = os.path.join(self.logdir, f'state_{epoch}.pt')
-        data = torch.load(loadpath)
+        data = torch.load(loadpath,map_location=torch.device('cpu'))
 
         self.step = data['step']
         self.model.load_state_dict(data['model'])
@@ -195,7 +195,7 @@ class Trainer(object):
 
             ## get a single datapoint
             batch = self.dataloader_vis.__next__()
-            conditions = to_device(batch.conditions, 'cuda:0')
+            conditions = to_device(batch.conditions, 'device')
 
             ## repeat each item in conditions `n_samples` times
             conditions = apply_dict(
