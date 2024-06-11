@@ -49,7 +49,7 @@ base = {
         'preprocess_fns': ['maze2d_set_terminals'],
         'clip_denoised': True,
         'use_padding': False,
-        'max_path_length': 40000,
+        'max_path_length': 4000, #changed this, as giovanni said he had changed it
 
         ## serialization
         'logbase': 'logs',
@@ -57,7 +57,7 @@ base = {
         'exp_name': watch(diffusion_args_to_watch),
 
         ## training
-        'n_steps_per_epoch': 10000,
+        'n_steps_per_epoch': 1000,
         'loss_type': 'l2',
         'n_train_steps': 2e6,
         'batch_size': 32,
@@ -71,12 +71,12 @@ base = {
         'n_reference': 50,
         'n_samples': 10,
         'bucket': None,
-        'device': 'cuda',
+        'device': 'cpu',
     },
 
     'plan': {
         'batch_size': 1,
-        'device': 'cuda',
+        'device': 'cpu',
 
         ## diffusion model
         'horizon': 256,

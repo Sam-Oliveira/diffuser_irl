@@ -3,6 +3,7 @@ import numpy as np
 import einops
 from scipy.spatial.transform import Rotation as R
 import pdb
+import functools
 
 from .d4rl import load_environment
 
@@ -10,6 +11,30 @@ from .d4rl import load_environment
 #-------------------------------- general api --------------------------------#
 #-----------------------------------------------------------------------------#
 
+
+# CHANGED 1 FUNCTION INSIDE OTHER FUNCTION INTO 1 FUNCTION AND 1 CLASS. TO AVOID MULTIPROCESSING bug
+"""
+def _fn(x, fns):
+    for fn in fns:
+        x = fn(x)
+    return x
+
+class compose:
+    # this means it takes any amount of arguments, and the arguments get collected into tuple named fns
+    def __init__(self, *fns):
+        self.fns = fns
+
+    def __call__(self, x):
+        return _fn(x, self.fns)
+
+def _fn(fns,x):
+    for fn in fns:
+        x = fn(x)
+    return x
+
+def compose(*fns):
+    return functools.partial(_fn,fns)
+"""
 def compose(*fns):
 
     def _fn(x):
@@ -18,6 +43,7 @@ def compose(*fns):
         return x
 
     return _fn
+
 
 def get_preprocess_fn(fn_names, env):
     fns = [eval(name)(env) for name in fn_names]
@@ -55,6 +81,105 @@ def add_deltas(env):
 
     return _fn
 
+"""
+class maze2d_set_terminals:
+    def __init__(self, env):
+        self.env_name=env
+
+    def __call__(self, dataset):
+        return functools.partial(self.set_terminals,dataset)
+
+    def set_terminals(self):
+        self.env = load_environment(self.env_name) if isinstance(self.env_name, str) else self.env_name
+        self.goal = np.array(self.env._target)
+        self.threshold = 0.5
+        xy = dataset['observations'][:, :2]
+        distances = np.linalg.norm(xy - self.goal, axis=-1)
+        at_goal = distances < self.threshold
+        timeouts = np.zeros_like(dataset['timeouts'])
+
+        # Timeout at time t if at goal at time t and not at goal at time t + 1
+        timeouts[:-1] = at_goal[:-1] & ~at_goal[1:]
+
+        timeout_steps = np.where(timeouts)[0]
+        path_lengths = timeout_steps[1:] - timeout_steps[:-1]
+
+        print(
+            f'[ utils/preprocessing ] Segmented {self.env.name} | {len(path_lengths)} paths | '
+            f'min length: {path_lengths.min()} | max length: {path_lengths.max()}'
+        )
+
+        dataset['timeouts'] = timeouts
+        return dataset
+
+
+def _fn_data(dataset,env,goal,threshold):
+    xy = dataset['observations'][:,:2]
+    distances = np.linalg.norm(xy - goal, axis=-1)
+    at_goal = distances < threshold
+    timeouts = np.zeros_like(dataset['timeouts'])
+
+    ## timeout at time t iff
+    ##      at goal at time t and
+    ##      not at goal at time t + 1
+    timeouts[:-1] = at_goal[:-1] * ~at_goal[1:]
+
+    timeout_steps = np.where(timeouts)[0]
+    path_lengths = timeout_steps[1:] - timeout_steps[:-1]
+
+    print(
+        f'[ utils/preprocessing ] Segmented {env.name} | {len(path_lengths)} paths | '
+        f'min length: {path_lengths.min()} | max length: {path_lengths.max()}'
+    )
+
+    dataset['timeouts'] = timeouts
+    return dataset
+
+class maze2d_set_terminals:
+    # this means it takes any amount of arguments, and the arguments get collected into tuple named fns
+    def __init__(self,env):
+        env_n = load_environment(env) if type(env) == str else env
+        goal = np.array(env_n._target)
+        threshold = 0.5
+        return _fn_data(dataset,env_n,goal,threshold)
+
+    #def __call__(self,env):
+     #   env_n = load_environment(env) if type(env) == str else env
+     #   goal = np.array(env_n._target)
+       # threshold = 0.5
+       # return _fn_data(dataset,env_n,goal,threshold)
+
+
+
+def _fn_data(env,goal,threshold,dataset):
+    xy = dataset['observations'][:,:2]
+    distances = np.linalg.norm(xy - goal, axis=-1)
+    at_goal = distances < threshold
+    timeouts = np.zeros_like(dataset['timeouts'])
+
+    ## timeout at time t iff
+    ##      at goal at time t and
+    ##      not at goal at time t + 1
+    timeouts[:-1] = at_goal[:-1] * ~at_goal[1:]
+
+    timeout_steps = np.where(timeouts)[0]
+    path_lengths = timeout_steps[1:] - timeout_steps[:-1]
+
+    print(
+        f'[ utils/preprocessing ] Segmented {env.name} | {len(path_lengths)} paths | '
+        f'min length: {path_lengths.min()} | max length: {path_lengths.max()}'
+    )
+
+    dataset['timeouts'] = timeouts
+    return dataset
+
+def maze2d_set_terminals(env):
+    env = load_environment(env) if type(env) == str else env
+    goal = np.array(env._target)
+    threshold = 0.5
+    #print(dir(env))
+    return functools.partial(_fn_data,env,goal,threshold)
+"""
 
 def maze2d_set_terminals(env):
     env = load_environment(env) if type(env) == str else env
@@ -84,7 +209,6 @@ def maze2d_set_terminals(env):
         return dataset
 
     return _fn
-
 
 #-------------------------- block-stacking --------------------------#
 
