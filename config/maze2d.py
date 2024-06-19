@@ -99,6 +99,46 @@ base = {
         'diffusion_epoch': 'latest',
     },
 
+    'guided_plan': {
+        'guide': 'sampling.ValueGuide',
+        'policy': 'sampling.GuidedPolicy',
+        'max_episode_length': 1000,
+        'batch_size': 1,
+        'preprocess_fns': [],
+        'device': 'cpu',
+
+        ## sample_kwargs (Idk what these do)
+        'n_guide_steps': 2,
+        'scale': 0.1,
+        't_stopgrad': 2,
+        'scale_grad_by_std': True,
+
+        ## serialization
+        'loadbase': None,
+        'vis_freq': 10, # What is this?? this gets used to decide when to print in plan_maze2d??
+        'logbase': 'logs',
+        'prefix': 'plans/release',
+        'exp_name': watch(plan_args_to_watch),
+        'suffix': '0',
+
+        ## value function
+        'discount': 1,
+
+        ## diffusion model
+        'horizon': 256,
+        'n_diffusion_steps': 256,
+        'normalizer': 'LimitsNormalizer',
+
+        ## loading
+        'diffusion_loadpath': 'f:diffusion/H{horizon}_T{n_diffusion_steps}',
+        'value_loadpath': 'f:valuesH{horizon}_T{n_diffusion_steps}_d{discount}',
+
+        'diffusion_epoch': 'latest',
+        'value_epoch': 'latest',
+
+        'verbose': True,
+    },
+
 }
 
 #------------------------ overrides ------------------------#
@@ -116,6 +156,10 @@ maze2d_umaze_v1 = {
         'n_diffusion_steps': 64,
     },
     'plan': {
+        'horizon': 128,
+        'n_diffusion_steps': 64,
+    },
+    'guided_plan': {
         'horizon': 128,
         'n_diffusion_steps': 64,
     },

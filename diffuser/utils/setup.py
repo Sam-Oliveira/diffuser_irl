@@ -56,6 +56,7 @@ class Parser(Tap):
         self.eval_fstrings(args)
         self.set_seed(args)
         self.get_commit(args)
+        self.set_loadbase(args)
         self.generate_exp_name(args)
         self.mkdir(args)
         self.save_diff(args)
@@ -129,6 +130,11 @@ class Parser(Tap):
             return
         print(f'[ utils/setup ] Setting seed: {args.seed}')
         set_seed(args.seed)
+
+    def set_loadbase(self, args):
+        if hasattr(args, 'loadbase') and args.loadbase is None:
+            print(f'[ utils/setup ] Setting loadbase: {args.logbase}')
+            args.loadbase = args.logbase
 
     def generate_exp_name(self, args):
         if not 'exp_name' in dir(args):
