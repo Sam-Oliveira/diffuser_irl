@@ -84,12 +84,14 @@ base = {
         'normalizer': 'LimitsNormalizer',
 
         ## serialization
-        'vis_freq': 10,
+        'vis_freq': 10, # What is this?? this gets used to decide when to print in plan_maze2d??
         'logbase': 'logs',
         'prefix': 'plans/release',
         'exp_name': watch(plan_args_to_watch),
         'suffix': '0',
 
+        # what does this do? I think it is for conditioning on certain observations (e.g. start/goal state)
+        # It isn't about conditional sampling (i.e. setting h I think)
         'conditional': False,
 
         ## loading

@@ -32,6 +32,7 @@ class GaussianDiffusion(nn.Module):
         self.clip_denoised = clip_denoised
         self.predict_epsilon = predict_epsilon
 
+        # register_buffer is used for parameters which should not be optimised, but get saved in state_dict.
         self.register_buffer('betas', betas)
         self.register_buffer('alphas_cumprod', alphas_cumprod)
         self.register_buffer('alphas_cumprod_prev', alphas_cumprod_prev)
@@ -43,7 +44,7 @@ class GaussianDiffusion(nn.Module):
         self.register_buffer('sqrt_recip_alphas_cumprod', torch.sqrt(1. / alphas_cumprod))
         self.register_buffer('sqrt_recipm1_alphas_cumprod', torch.sqrt(1. / alphas_cumprod - 1))
 
-        # calculations for posterior q(x_{t-1} | x_t, x_0)
+        # calculations for posterior q(x_{t-1} | x_t, x_0) eq(7) in 2020 diffusion paper
         posterior_variance = betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
         self.register_buffer('posterior_variance', posterior_variance)
 
@@ -93,7 +94,7 @@ class GaussianDiffusion(nn.Module):
 
     def predict_start_from_noise(self, x_t, t, noise):
         '''
-            if self.predict_epsilon, model output is (scaled) noise;
+            if self.predict_epsilon, model output is (scaled) noise; #why scaled??
             otherwise, model predicts x0 directly
         '''
         if self.predict_epsilon:
@@ -104,6 +105,7 @@ class GaussianDiffusion(nn.Module):
         else:
             return noise
 
+    # posterior q(x_t-1|x_t,x_0)
     def q_posterior(self, x_start, x_t, t):
         posterior_mean = (
             extract(self.posterior_mean_coef1, t, x_t.shape) * x_start +
@@ -113,6 +115,8 @@ class GaussianDiffusion(nn.Module):
         posterior_log_variance_clipped = extract(self.posterior_log_variance_clipped, t, x_t.shape)
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
 
+    
+    # Why does it use the mean and variance of q_posterior to get the mean and variance for p? 
     def p_mean_variance(self, x, cond, t):
         x_recon = self.predict_start_from_noise(x, t=t, noise=self.model(x, cond, t))
 
@@ -129,11 +133,16 @@ class GaussianDiffusion(nn.Module):
     def p_sample(self, x, cond, t):
         b, *_, device = *x.shape, x.device
         model_mean, _, model_log_variance = self.p_mean_variance(x=x, cond=cond, t=t)
+
+        # I THINK THIS IS WHAT I'D HAVE TO CHANGE?? maybe add argument requires_grad=True
+        # OR MAYBE Q_SAMPLE BELOW? IDK FIGURE IT OUT. OR Q_POSTERIOR. BASICALLY FIRST FIND DIFF BETWEEN Q AND P
+        # i think p should reverse, and q forward, based on image in paper. 
         noise = torch.randn_like(x)
         # no noise when t == 0
         nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
         return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise
 
+    # i.e. get samples of x_0 starting from x_T, I think. Might have to remove this no_grad? not sure how though, without impacting training.
     @torch.no_grad()
     def p_sample_loop(self, shape, cond, verbose=True, return_diffusion=False):
         device = self.betas.device

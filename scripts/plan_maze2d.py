@@ -39,15 +39,16 @@ if args.conditional:
     env.set_target()
 
 ## set conditioning xy position to be the goal
-target = env._target
+target = env._target # I think this is simply whatever target the env has decided to. They never specify the target, or the start state. Both are random.
 cond = {
     diffusion.horizon - 1: np.array([*target, 0, 0]),
 }
 
 ## observations for rendering
-rollout = [observation.copy()]
+rollout = [observation.copy()] #1st observation I think
 
 total_reward = 0
+
 for t in range(env.max_episode_steps):
 
     state = env.state_vector().copy()
@@ -55,8 +56,8 @@ for t in range(env.max_episode_steps):
     ## can replan if desired, but the open-loop plans are good enough for maze2d
     ## that we really only need to plan once
     if t == 0:
-        cond[0] = observation
-
+        cond[0] = observation #so cond[0] is the start state. and cond [some index] is the goal state. they get fed to policy (diffuser/guides/policies.py). or gdiffuser/sampling/policies.py for main branch
+        # this policy() call basically plans the entire thing based on initial and end state in "cond". Obviously will have to be adapted for guided planning.
         action, samples = policy(cond, batch_size=args.batch_size)
         actions = samples.actions[0]
         sequence = samples.observations[0]
@@ -85,7 +86,7 @@ for t in range(env.max_episode_steps):
     #         pdb.set_trace()
 
 
-
+    # terminal state is given by given (inpainting)
     next_observation, reward, terminal, _ = env.step(action)
     total_reward += reward
     score = env.get_normalized_score(total_reward)
@@ -105,7 +106,6 @@ for t in range(env.max_episode_steps):
     rollout.append(next_observation.copy())
 
     # logger.log(score=score, step=t)
-
     if t % args.vis_freq == 0 or terminal:
         fullpath = join(args.savepath, f'{t}.png')
 
