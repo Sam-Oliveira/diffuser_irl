@@ -47,9 +47,10 @@ class Policy:
 
         ## run reverse diffusion process
         sample = self.diffusion_model(conditions)
-        sample = utils.to_np(sample)
+        sample = utils.to_np(sample.trajectories)
 
         ## extract action [ batch_size x horizon x transition_dim ]
+
         actions = sample[:, :, :self.action_dim]
         actions = self.normalizer.unnormalize(actions, 'actions')
         # actions = np.tanh(actions)

@@ -2,10 +2,12 @@ import json
 import numpy as np
 from os.path import join
 import pdb
+import torch
 
 from diffuser.guides.policies import Policy
 import diffuser.datasets as datasets
 import diffuser.utils as utils
+import diffuser.sampling as sampling
 
 
 class Parser(utils.Parser):
@@ -46,13 +48,6 @@ guide = guide_config()
 # this was previously in unguided planning, but I dont think this works like that anymore
 #policy = Policy(diffusion, dataset.normalizer)
 
-logger_config = utils.Config(
-    utils.Logger,
-    renderer=renderer,
-    logpath=args.savepath,
-    vis_freq=args.vis_freq,
-    max_render=args.max_render,
-)
 
 ## policies are wrappers around an unconditional diffusion model and a value guide
 policy_config = utils.Config(
@@ -70,7 +65,7 @@ policy_config = utils.Config(
     verbose=False,
 )
 
-logger = logger_config()
+
 policy = policy_config()
 
 #---------------------------------- main loop ----------------------------------#

@@ -14,6 +14,14 @@ diffusion_args_to_watch = [
 ]
 
 
+value_args_to_watch = [
+    ('prefix', ''),
+    ('horizon', 'H'),
+    ('n_diffusion_steps', 'T'),
+    ('discount','d'),
+]
+
+
 plan_args_to_watch = [
     ('prefix', ''),
     ##
@@ -32,7 +40,7 @@ base = {
     'diffusion': {
         ## model
         'model': 'models.TemporalUnet',
-        'diffusion': 'models.GaussianDiffusion',
+        'diffusion': 'models.GaussianDiffusion_for_guide',
         'horizon': 256,
         'n_diffusion_steps': 256,
         'action_weight': 1,
@@ -43,7 +51,7 @@ base = {
         'renderer': 'utils.Maze2dRenderer',
 
         ## dataset
-        'loader': 'datasets.GoalDataset',
+        'loader': 'datasets.GoalDataset',    # I THINK I HAVE TO CHANGE THIS TO SEQUENCE_DATASET, THAT'S WHAT THEY HAVE FOR MAIN
         'termination_penalty': None,
         'normalizer': 'LimitsNormalizer',
         'preprocess_fns': ['maze2d_set_terminals'],
@@ -99,12 +107,57 @@ base = {
         'diffusion_epoch': 'latest',
     },
 
+    'init_values': {
+        'model': 'models.ValueFunction',
+        'diffusion': 'models.ValueDiffusion',
+        'horizon': 128,
+        'n_diffusion_steps': 64,
+        'dim_mults': (1, 4, 8),
+        'renderer': 'utils.MuJoCoRenderer',
+
+        ## dataset
+        'loader': 'datasets.ValueDataset',
+        'termination_penalty': None,
+        'normalizer': 'LimitsNormalizer',
+        'preprocess_fns': ['maze2d_set_terminals'],
+        'clip_denoised': True,
+        'use_padding': False,
+        'max_path_length': 4000, #changed this, as giovanni said he had changed it
+
+        ## serialization
+        'discount':1,
+        'logbase': 'logs',
+        'prefix': 'values/',
+        'exp_name': watch(value_args_to_watch),
+
+        ## They use this in main branch, idk if i'll need them.
+        #'discount': 1,
+        #'normed': False,
+
+        ## training
+        'n_steps_per_epoch': 1000,
+        'loss_type': 'value_l2',
+        'n_train_steps': 2e6,
+        'batch_size': 1,
+        'learning_rate': 2e-4,
+        'gradient_accumulate_every': 2,
+        'ema_decay': 0.995,
+        'save_freq': 1000,
+        'sample_freq': 1000,
+        'n_saves': 50,
+        'save_parallel': False,
+        'n_reference': 50,
+        'n_samples': 10,
+        'bucket': None,
+        'device': 'cpu',
+    },
+
     'guided_plan': {
         'guide': 'sampling.ValueGuide',
         'policy': 'sampling.GuidedPolicy',
         'max_episode_length': 1000,
         'batch_size': 1,
-        'preprocess_fns': [],
+        'preprocess_fns': [], #think i might need the maze2d function from above. check what is does
         'device': 'cpu',
 
         ## sample_kwargs (Idk what these do)
@@ -112,12 +165,13 @@ base = {
         'scale': 0.1,
         't_stopgrad': 2,
         'scale_grad_by_std': True,
+        'conditional': False,
 
         ## serialization
         'loadbase': None,
         'vis_freq': 10, # What is this?? this gets used to decide when to print in plan_maze2d??
         'logbase': 'logs',
-        'prefix': 'plans/release',
+        'prefix': 'plans/guided',
         'exp_name': watch(plan_args_to_watch),
         'suffix': '0',
 
@@ -131,7 +185,7 @@ base = {
 
         ## loading
         'diffusion_loadpath': 'f:diffusion/H{horizon}_T{n_diffusion_steps}',
-        'value_loadpath': 'f:valuesH{horizon}_T{n_diffusion_steps}_d{discount}',
+        'value_loadpath': 'f:values/H{horizon}_T{n_diffusion_steps}_d{discount}',
 
         'diffusion_epoch': 'latest',
         'value_epoch': 'latest',
@@ -156,6 +210,10 @@ maze2d_umaze_v1 = {
         'n_diffusion_steps': 64,
     },
     'plan': {
+        'horizon': 128,
+        'n_diffusion_steps': 64,
+    },
+    'init_values': {
         'horizon': 128,
         'n_diffusion_steps': 64,
     },

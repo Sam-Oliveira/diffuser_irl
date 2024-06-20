@@ -64,6 +64,6 @@ class Config(collections.Mapping):
     def __call__(self, *args, **kwargs):
         instance = self._class(*args, **kwargs, **self._dict)
         # Had to comment out since we are not using cuda
-        #if self._device:
-        #    instance = instance.to(self._device)
+        if self._device:
+            instance = instance.to(self._device)
         return instance

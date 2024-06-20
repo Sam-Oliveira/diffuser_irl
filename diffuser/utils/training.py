@@ -159,6 +159,8 @@ class Trainer(object):
         data = torch.load(loadpath)
 
         self.step = data['step']
+
+        # WILL PROBABLY HAVE TO CHANGE THIS SO MODELS ARE LOADED FOR EVAL WHEN I'M TRYING TO DO GUIDED PLANNING
         self.model.load_state_dict(data['model'])
         self.ema_model.load_state_dict(data['ema'])
 
@@ -216,8 +218,10 @@ class Trainer(object):
             )
 
             ## [ n_samples x horizon x (action_dim + observation_dim) ]
-            samples = self.ema_model.conditional_sample(conditions)
-            samples = to_np(samples)
+            #samples = self.ema_model.conditional_sample(conditions)
+            #samples = to_np(samples)
+            samples=self.ema_model(conditions)
+            samples=to_np(samples.trajectories)
 
             ## [ n_samples x horizon x observation_dim ]
             normed_observations = samples[:, :, self.dataset.action_dim:]

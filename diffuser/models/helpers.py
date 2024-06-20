@@ -157,6 +157,7 @@ class ValueL2(ValueLoss):
     def _loss(self, pred, targ):
         return F.mse_loss(pred, targ, reduction='none')
 
+
 Losses = {
     'l1': WeightedL1,
     'l2': WeightedL2,

@@ -108,6 +108,24 @@ class ValueDataset(SequenceDataset):
         self.discount = discount
         self.discounts = self.discount ** np.arange(self.max_path_length)[:,None]
 
+    def _get_bounds(self):
+        print('[ datasets/sequence ] Getting value dataset bounds...', end=' ', flush=True)
+        vmin = np.inf
+        vmax = -np.inf
+        for i in range(len(self.indices)):
+            value = self.__getitem__(i).values.item()
+            vmin = min(value, vmin)
+            vmax = max(value, vmax)
+        print('✓')
+        return vmin, vmax
+
+    def normalize_value(self, value):
+        ## [0, 1]
+        normed = (value - self.vmin) / (self.vmax - self.vmin)
+        ## [-1, 1]
+        normed = normed * 2 - 1
+        return normed
+
     def __getitem__(self, idx):
         batch = super().__getitem__(idx)
         path_ind, start, end = self.indices[idx]

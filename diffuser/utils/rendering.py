@@ -306,6 +306,7 @@ class MazeRenderer:
             savepath : str
             observations : [ n_paths x horizon x 2 ]
         '''
+
         assert len(paths) % ncol == 0, 'Number of paths must be divisible by number of columns'
 
         images = []
