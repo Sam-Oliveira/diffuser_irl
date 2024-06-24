@@ -35,6 +35,8 @@ def default_sample_fn(model, x, cond, t):
 
 def sort_by_values(x, values):
     inds = torch.argsort(values, descending=True)
+    #print(inds.shape)
+    #print(x.shape)
     x = x[inds]
     values = values[inds]
     return x, values

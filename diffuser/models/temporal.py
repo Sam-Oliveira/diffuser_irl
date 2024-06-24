@@ -56,7 +56,6 @@ class TemporalUnet(nn.Module):
         super().__init__()
 
         dims = [transition_dim, *map(lambda m: dim * m, dim_mults)]
-        print(dims)
         in_out = list(zip(dims[:-1], dims[1:]))
         print(f'[ models/temporal ] Channel dimensions: {in_out}')
 
@@ -110,7 +109,6 @@ class TemporalUnet(nn.Module):
         '''
             x : [ batch x horizon x transition ]
         '''
-
         x = einops.rearrange(x, 'b h t -> b t h')
 
         t = self.time_mlp(time)
@@ -168,14 +166,32 @@ class ValueFunction(nn.Module):
         ## mask out first conditioning timestep, since this is not sampled by the model
         #x[:, :, 0] = 0
         #x = self.sin(x)
+
+        # I THINK FIRST TWO ELEMENTS ARE THE ACTIONS
+        #print(x[:,:,-1])
+        #print(x[0,:,0])
+
+        # So first two coordinates are actions. Then 3rd and 4th are coordinates, but I think y coordinate comes before x.
+        # Also note when printed, I think y gets printed before x! and they start on top left corner.
+        x=x[:,3,:]
+
+        #x=torch.sum(x,dim=1)
+        x=torch.sum(x,dim=1,keepdim=True)
+        #print(x)
+        #x=torch.where(x>1,(x-1)*10,x-1)
+        #print(x)
+        return 5*x
+        #return x.reshape((1,x.shape[0]))
+
         x=torch.flatten(x,start_dim=1)
         x = F.relu(self.i2h(x))
         x = F.relu(self.h2h(x))
         x = F.relu(self.h2o(x))
+        print(x.shape)
         return x
     
 
-"""
+""" this class is used by them for guide in main branch. however, i think see class below for guide for maze2d! (they dont actually do it, but they include this code in maze2d branch?)
 class ValueFunction(nn.Module):
 
     def __init__(
@@ -183,7 +199,7 @@ class ValueFunction(nn.Module):
         horizon,
         transition_dim,
         cond_dim,
-        dim=32, 
+        dim=6, 
         dim_mults=(1, 2, 4, 8),
         out_dim=1,
     ):
@@ -262,8 +278,12 @@ class ValueFunction(nn.Module):
         ##
         x = x.view(len(x), -1)
         out = self.final_block(torch.cat([x, t], dim=-1))
-        return out
+        return out  
 """
+
+# This was in maze2d original branch, but I haeve no idea why? it doesnt seem to be used anywhere.
+# i think it's the equivalent of ValueFunction() but for maze2d
+# note u need to call this in init_values in config/maze2d.py, and initiate values, before running guided planning
 class TemporalValue(nn.Module):
 
     def __init__(

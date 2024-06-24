@@ -102,7 +102,10 @@ batch = utils.batchify(dataset[0])
 
 # * unpacks arguments in batch
 loss, _ = diffusion.loss(*batch)
-loss.backward()
+
+# havent managed to make this work in my super simple network. it was working with random linear network
+# and then stopped, idk why, when I just did slicing of x coordinate
+#loss.backward()
 print('✓')
 
 #-----------------------------------------------------------------------------#

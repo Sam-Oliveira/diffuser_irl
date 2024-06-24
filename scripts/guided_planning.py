@@ -20,7 +20,7 @@ args = Parser().parse_args('guided_plan')
 
 # logger = utils.Logger(args)
 
-env = datasets.load_environment(args.dataset)
+#env = datasets.load_environment(args.dataset)
 
 #---------------------------------- loading ----------------------------------#
 
@@ -57,7 +57,7 @@ policy_config = utils.Config(
     diffusion_model=diffusion,
     normalizer=dataset.normalizer,
     preprocess_fns=args.preprocess_fns,
-    ## sampling kwargs
+    ## sampling kwargs (idk what these mean)
     sample_fn=sampling.n_step_guided_p_sample,
     n_guide_steps=args.n_guide_steps,
     t_stopgrad=args.t_stopgrad,
@@ -65,16 +65,16 @@ policy_config = utils.Config(
     verbose=False,
 )
 
-
+# calls the guided policy class, instead of the normal policy class that was used for unguided planning
 policy = policy_config()
 
 #---------------------------------- main loop ----------------------------------#
-
+env=dataset.env
 observation = env.reset()
 
-if args.conditional:
-    print('Resetting target')
-    env.set_target()
+#if args.conditional:
+print('Resetting target')
+env.set_target()
 
 
 ## observations for rendering
@@ -84,13 +84,14 @@ total_reward = 0
 
 for t in range(env.max_episode_steps):
 
-    state = env.state_vector().copy()
 
     ## save state for rendering only
     state = env.state_vector().copy()
 
     ## format current observation for conditioning
     conditions = {0: observation}
+
+    #i think basically we take 1 step, and plan again every time! (in rollout image. in plan, it's just the plan at first step)
     action, samples = policy(conditions, batch_size=args.batch_size, verbose=args.verbose)
 
     ## execute action in environment
@@ -104,6 +105,7 @@ for t in range(env.max_episode_steps):
         f'{action}'
     )
 
+    # just for printing
     if 'maze2d' in args.dataset:
         xy = next_observation[:2]
         goal = env.unwrapped._target

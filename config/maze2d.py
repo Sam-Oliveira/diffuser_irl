@@ -125,7 +125,7 @@ base = {
         'max_path_length': 4000, #changed this, as giovanni said he had changed it
 
         ## serialization
-        'discount':1,
+        'discount':0.995,
         'logbase': 'logs',
         'prefix': 'values/',
         'exp_name': watch(value_args_to_watch),
@@ -169,14 +169,14 @@ base = {
 
         ## serialization
         'loadbase': None,
-        'vis_freq': 10, # What is this?? this gets used to decide when to print in plan_maze2d??
+        'vis_freq': 10, # What is this?? this gets used to decide when to print in plan_maze2d?? i think it's how often it renders
         'logbase': 'logs',
         'prefix': 'plans/guided',
         'exp_name': watch(plan_args_to_watch),
         'suffix': '0',
 
         ## value function
-        'discount': 1,
+        'discount': 0.995,
 
         ## diffusion model
         'horizon': 256,
