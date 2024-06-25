@@ -26,7 +26,7 @@ def default_sample_fn(model, x, cond, t):
     model_std = torch.exp(0.5 * model_log_variance)
 
     # no noise when t == 0
-    noise = torch.randn_like(x)
+    noise = torch.randn_like(x,requires_grad=True)
     noise[t == 0] = 0
 
     values = torch.zeros(len(x), device=x.device)
@@ -35,8 +35,6 @@ def default_sample_fn(model, x, cond, t):
 
 def sort_by_values(x, values):
     inds = torch.argsort(values, descending=True)
-    #print(inds.shape)
-    #print(x.shape)
     x = x[inds]
     values = values[inds]
     return x, values
@@ -386,7 +384,7 @@ class GaussianDiffusion_for_guide(nn.Module):
         device = self.betas.device
 
         batch_size = shape[0]
-        x = torch.randn(shape, device=device)
+        x = torch.randn(shape, device=device,requires_grad=True)
         x = apply_conditioning(x, cond, self.action_dim)
 
         chain = [x] if return_chain else None
@@ -422,7 +420,7 @@ class GaussianDiffusion_for_guide(nn.Module):
 
     def q_sample(self, x_start, t, noise=None):
         if noise is None:
-            noise = torch.randn_like(x_start)
+            noise = torch.randn_like(x_start,requires_grad=True)
 
         sample = (
             extract(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start +
@@ -451,6 +449,7 @@ class GaussianDiffusion_for_guide(nn.Module):
 
     def loss(self, x, *args):
         batch_size = len(x)
+        # didnt add grad here! it's int so cant, also doesnt make much sense i think
         t = torch.randint(0, self.n_timesteps, (batch_size,), device=x.device).long()
         return self.p_losses(x, *args, t)
     
@@ -463,7 +462,7 @@ class ValueDiffusion(GaussianDiffusion_for_guide):
 
     def p_losses(self, x_start, cond, target, t):
 
-        noise = torch.randn_like(x_start)
+        noise = torch.randn_like(x_start,requires_grad=True)
 
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
         x_noisy = apply_conditioning(x_noisy, cond, self.action_dim)

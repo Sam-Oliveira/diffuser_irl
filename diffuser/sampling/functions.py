@@ -29,7 +29,7 @@ def n_step_guided_p_sample(
     model_mean, _, model_log_variance = model.p_mean_variance(x=x, cond=cond, t=t)
 
     # no noise when t == 0
-    noise = torch.randn_like(x)
+    noise = torch.randn_like(x,requires_grad=True)
     noise[t == 0] = 0
 
     return model_mean + model_std * noise, y

@@ -37,7 +37,7 @@ def load_untrained_value(*loadpath, epoch='latest', device='cpu'):
     model_config = load_config(*loadpath, 'model_config.pkl')
 
 
-def load_diffusion(*loadpath, epoch='latest', device='cpu'):
+def load_diffusion(*loadpath, epoch='latest', device='cpu', seed=None):
     dataset_config = load_config(*loadpath, 'dataset_config.pkl')
     render_config = load_config(*loadpath, 'render_config.pkl')
     model_config = load_config(*loadpath, 'model_config.pkl')

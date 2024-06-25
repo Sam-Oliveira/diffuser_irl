@@ -29,7 +29,7 @@ diffusion_experiment = utils.load_diffusion(args.logbase, args.dataset, args.dif
 
 value_experiment = utils.load_diffusion(
     args.loadbase, args.dataset, args.value_loadpath,
-    epoch=args.value_epoch, #seed=args.seed,
+    epoch=args.value_epoch, seed=args.seed,
 )
 
 ## ensure that the diffusion model and value function are compatible with each other

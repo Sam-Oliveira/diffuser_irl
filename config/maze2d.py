@@ -161,15 +161,16 @@ base = {
         'device': 'cpu',
 
         ## sample_kwargs (Idk what these do)
-        'n_guide_steps': 2,
+        'n_guide_steps': 2, #the amount of steps actually taken in the environment based on each plan
         'scale': 0.1,
         't_stopgrad': 2,
         'scale_grad_by_std': True,
         'conditional': False,
+        'seed': 0,
 
         ## serialization
         'loadbase': None,
-        'vis_freq': 10, # What is this?? this gets used to decide when to print in plan_maze2d?? i think it's how often it renders
+        'vis_freq': 10, # i think it's how often it renders
         'logbase': 'logs',
         'prefix': 'plans/guided',
         'exp_name': watch(plan_args_to_watch),

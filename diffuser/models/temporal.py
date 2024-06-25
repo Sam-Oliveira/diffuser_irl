@@ -180,7 +180,7 @@ class ValueFunction(nn.Module):
         #print(x)
         #x=torch.where(x>1,(x-1)*10,x-1)
         #print(x)
-        return 5*x
+        return x
         #return x.reshape((1,x.shape[0]))
 
         x=torch.flatten(x,start_dim=1)
