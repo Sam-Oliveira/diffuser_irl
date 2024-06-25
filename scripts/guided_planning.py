@@ -24,7 +24,7 @@ args = Parser().parse_args('guided_plan')
 
 #---------------------------------- loading ----------------------------------#
 
-diffusion_experiment = utils.load_diffusion(args.logbase, args.dataset, args.diffusion_loadpath, epoch=args.diffusion_epoch)
+diffusion_experiment = utils.load_diffusion(args.logbase, args.dataset, args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.seed)
 
 
 value_experiment = utils.load_diffusion(

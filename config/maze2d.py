@@ -85,6 +85,7 @@ base = {
     'plan': {
         'batch_size': 1,
         'device': 'cpu',
+        'seed':1, #seed for environment
 
         ## diffusion model
         'horizon': 256,
@@ -166,7 +167,7 @@ base = {
         't_stopgrad': 2,
         'scale_grad_by_std': True,
         'conditional': False,
-        'seed': 0,
+        'seed': 1, #seed for environment!
 
         ## serialization
         'loadbase': None,

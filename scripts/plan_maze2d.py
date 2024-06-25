@@ -18,11 +18,9 @@ args = Parser().parse_args('plan')
 
 # logger = utils.Logger(args)
 
-env = datasets.load_environment(args.dataset)
-
 #---------------------------------- loading ----------------------------------#
 
-diffusion_experiment = utils.load_diffusion(args.logbase, args.dataset, args.diffusion_loadpath, epoch=args.diffusion_epoch)
+diffusion_experiment = utils.load_diffusion(args.logbase, args.dataset, args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.seed)
 
 diffusion = diffusion_experiment.ema
 dataset = diffusion_experiment.dataset
@@ -31,12 +29,12 @@ renderer = diffusion_experiment.renderer
 policy = Policy(diffusion, dataset.normalizer)
 
 #---------------------------------- main loop ----------------------------------#
-
+env=dataset.env
 observation = env.reset()
 
-if args.conditional:
-    print('Resetting target')
-    env.set_target()
+#if args.conditional:
+print('Resetting target')
+env.set_target()
 
 ## set conditioning xy position to be the goal
 target = env._target # I think this is simply whatever target the env has decided to. They never specify the target, or the start state. Both are random.
