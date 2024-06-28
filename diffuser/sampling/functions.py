@@ -5,19 +5,20 @@ from diffuser.models.helpers import (
     apply_conditioning,
 )
 
-
+# So this function is used as the sampling function for guided sampling(instead of default_sample_fn() in diffusion.py). It only does 1 step of the reverse diffusion! 
+# I think n_guide_steps is just number of steps in direction of grad? Idk. Also don't understand structure of grad and what is happening when we index into it with t<t_stop_grad since t is some scalar, no?
 @torch.no_grad()
 def n_step_guided_p_sample(
-    model, x, cond, t, guide, scale=0.001, t_stopgrad=0, n_guide_steps=1, scale_grad_by_std=True,
+    model, x, cond, t, guide, scale=0.001, t_stopgrad=0, n_guide_steps=1, scale_grad_by_std=True, stop_grad=False
 ):
     model_log_variance = extract(model.posterior_log_variance_clipped, t, x.shape)
     model_std = torch.exp(0.5 * model_log_variance)
     model_var = torch.exp(model_log_variance)
 
+    # just about how many steps we take in direction of guide gradient I think
     for _ in range(n_guide_steps):
         with torch.enable_grad():
-            y, grad = guide.gradients(x, cond, t)
-
+            y, grad = guide.gradients(x, stop_grad,cond, t)
         if scale_grad_by_std:
             grad = model_var * grad
 

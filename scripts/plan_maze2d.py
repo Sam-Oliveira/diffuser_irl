@@ -58,6 +58,8 @@ for t in range(env.max_episode_steps):
         # this policy() call basically plans the entire thing based on initial and end state in "cond". Obviously will have to be adapted for guided planning.
         action, samples = policy(cond, batch_size=args.batch_size)
         actions = samples.actions[0]
+
+        #note it simply gets this sequence at t=0, but then keeos using it throughout. this is the state predictions.
         sequence = samples.observations[0]
     # pdb.set_trace()
 
@@ -69,7 +71,7 @@ for t in range(env.max_episode_steps):
         next_waypoint[2:] = 0
         # pdb.set_trace()
 
-    ## can use actions or define a simple controller based on state predictions
+    ## can use actions or define a simple controller based on state predictions (i.e. on "sequence" var that is the predictions done at t=0)
     action = next_waypoint[:2] - state[:2] + (next_waypoint[2:] - state[2:])
     # pdb.set_trace()
     ####
@@ -84,7 +86,7 @@ for t in range(env.max_episode_steps):
     #         pdb.set_trace()
 
 
-    # terminal state is given by given (inpainting)
+    # terminal state is given (inpainting)
     next_observation, reward, terminal, _ = env.step(action)
     total_reward += reward
     score = env.get_normalized_score(total_reward)

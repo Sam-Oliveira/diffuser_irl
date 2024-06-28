@@ -32,6 +32,7 @@ plan_args_to_watch = [
     ('normalizer', ''),
     ('batch_size', 'b'),
     ##
+    ('stop_grad', 'stop-grad'),
     ('conditional', 'cond'),
 ]
 
@@ -85,7 +86,7 @@ base = {
     'plan': {
         'batch_size': 1,
         'device': 'cpu',
-        'seed':1, #seed for environment
+        'seed':13, #seed for environment
 
         ## diffusion model
         'horizon': 256,
@@ -162,16 +163,17 @@ base = {
         'device': 'cpu',
 
         ## sample_kwargs (Idk what these do)
-        'n_guide_steps': 2, #the amount of steps actually taken in the environment based on each plan
+        'n_guide_steps': 2, #the amount of steps actually taken in the environment based on each plan? just about how many steps of opt process we take in direction of guide gradient I think
         'scale': 0.1,
-        't_stopgrad': 2,
+        't_stopgrad': 2, #no idea what this is supposed to do mathematically
+        'stop_grad':False,
         'scale_grad_by_std': True,
         'conditional': False,
-        'seed': 1, #seed for environment!
+        'seed': 15, #seed for environment!
 
         ## serialization
         'loadbase': None,
-        'vis_freq': 10, # i think it's how often it renders
+        'vis_freq': 4, # i think it's how often it renders
         'logbase': 'logs',
         'prefix': 'plans/guided',
         'exp_name': watch(plan_args_to_watch),

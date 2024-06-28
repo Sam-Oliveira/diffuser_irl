@@ -32,7 +32,7 @@ class GuidedPolicy:
         actions = trajectories[:, :, :self.action_dim]
         actions = self.normalizer.unnormalize(actions, 'actions')
 
-        ## extract first action
+        ## extract first action (of first element of batch i believe)
         action = actions[0, 0]
 
         normed_observations = trajectories[:, :, self.action_dim:]

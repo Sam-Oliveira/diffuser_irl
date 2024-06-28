@@ -171,16 +171,13 @@ class ValueFunction(nn.Module):
         #print(x[:,:,-1])
         #print(x[0,:,0])
 
-        # So first two coordinates are actions. Then 3rd and 4th are coordinates, but I think y coordinate comes before x.
+        # So first two coordinates are actions. Then 3rd and 4th are coordinates, but I think y coordinate comes before x. I think this migth  be the opposite for velocity, but not sure.
         # Also note when printed, I think y gets printed before x! and they start on top left corner.
-        x=x[:,3,:]
-
-        #x=torch.sum(x,dim=1)
+        x=x[:,2:4,:]
+        x=torch.sum(x,dim=1)
         x=torch.sum(x,dim=1,keepdim=True)
-        #print(x)
-        #x=torch.where(x>1,(x-1)*10,x-1)
-        #print(x)
-        return x
+
+        return 5*x
         #return x.reshape((1,x.shape[0]))
 
         x=torch.flatten(x,start_dim=1)

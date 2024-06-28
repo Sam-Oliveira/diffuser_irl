@@ -41,6 +41,7 @@ def sort_by_values(x, values):
 
 
 def make_timesteps(batch_size, i, device):
+    #tensor filled with "i" value
     t = torch.full((batch_size,), i, device=device, dtype=torch.long)
     return t
 

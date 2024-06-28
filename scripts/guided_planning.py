@@ -41,6 +41,8 @@ renderer = diffusion_experiment.renderer
 
 ## initialize value guide
 value_function = value_experiment.ema
+
+#ValueGuide (guiddes.py) takes ValueFunction (temporal.py) as its model
 guide_config = utils.Config(args.guide, model=value_function, verbose=False)
 guide = guide_config()
 
@@ -62,6 +64,7 @@ policy_config = utils.Config(
     n_guide_steps=args.n_guide_steps,
     t_stopgrad=args.t_stopgrad,
     scale_grad_by_std=args.scale_grad_by_std,
+    stop_grad=args.stop_grad,
     verbose=False,
 )
 
@@ -82,14 +85,23 @@ rollout = [observation.copy()] #1st observation I think
 
 total_reward = 0
 
+
+
 for t in range(env.max_episode_steps):
 
 
     ## save state for rendering only
     state = env.state_vector().copy()
 
-    ## format current observation for conditioning
+    ## IMPAINTING
+    #target = env._target 
+    #conditions = {0: observation,diffusion.horizon - 1: np.array([*target, 0, 0])}
+
+
+    ## format current observation for conditioning (NO IMPAINTING)
     conditions = {0: observation}
+
+    
 
     #i think basically we take 1 step, and plan again every time! (in rollout image. in plan, it's just the plan at first step)
     action, samples = policy(conditions, batch_size=args.batch_size, verbose=args.verbose)
