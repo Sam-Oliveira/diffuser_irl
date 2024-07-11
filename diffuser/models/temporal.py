@@ -151,9 +151,7 @@ class ValueFunction(nn.Module):
         #self.hidden_size = hidden_size
         #self.output_size = output_size
         #self.sin=SinusoidalPosEmb(dim),
-        self.i2h = nn.Linear(768, 1536)
-        self.h2h = nn.Linear(1536, 768)
-        self.h2o = nn.Linear(768,1)
+        self.fc = nn.Linear(128*6,1,bias=False)
         
         
     def forward(self, x, cond, time, *args):
@@ -167,9 +165,13 @@ class ValueFunction(nn.Module):
         #x[:, :, 0] = 0
         #x = self.sin(x)
 
-        # I THINK FIRST TWO ELEMENTS ARE THE ACTIONS
-        #print(x[:,:,-1])
-        #print(x[0,:,0])
+        # NN to learn reward of function below
+
+        x=torch.flatten(x)
+        x = self.fc(x)
+        return x.unsqueeze(dim=0)
+
+        # NON-NN FUNCTION
 
         # So first two coordinates are actions. Then 3rd and 4th are coordinates, but I think y coordinate comes before x. I think this migth  be the opposite for velocity, but not sure.
         # Also note when printed, I think y gets printed before x! and they start on top left corner.
@@ -178,6 +180,7 @@ class ValueFunction(nn.Module):
         x=torch.sum(x,dim=1,keepdim=True)
 
         return 5*x
+    
         #return x.reshape((1,x.shape[0]))
 
         x=torch.flatten(x,start_dim=1)
@@ -280,7 +283,6 @@ class ValueFunction(nn.Module):
 
 # This was in maze2d original branch, but I haeve no idea why? it doesnt seem to be used anywhere.
 # i think it's the equivalent of ValueFunction() but for maze2d
-# note u need to call this in init_values in config/maze2d.py, and initiate values, before running guided planning
 class TemporalValue(nn.Module):
 
     def __init__(

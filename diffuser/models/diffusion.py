@@ -13,26 +13,24 @@ from .helpers import (
     Losses,
 )
 
-# NOT SURE IF THESE NEXT 30 LINES ARE NEEDED, THEY HAVE THEM IN MAIN BRANCH (basically once i added them, planning in maze2d broke. 
-# but might have to add them back at some point, code for guided planning probably assumes this)
-
 
 Sample = namedtuple('Sample', 'trajectories values chains')
 
 
-@torch.no_grad()
+# function that does one reverse step I believe 
 def default_sample_fn(model, x, cond, t):
     model_mean, _, model_log_variance = model.p_mean_variance(x=x, cond=cond, t=t)
     model_std = torch.exp(0.5 * model_log_variance)
 
     # no noise when t == 0
-    noise = torch.randn_like(x,requires_grad=True)
+    noise = torch.randn_like(x)
+    #model_mean.register_hook(lambda grad: print(grad))
     noise[t == 0] = 0
 
-    values = torch.zeros(len(x), device=x.device)
+    values = torch.zeros(len(x), device=x.device) # no idea what this is supposed to be
     return model_mean + model_std * noise, values
 
-
+# no idea why we use this
 def sort_by_values(x, values):
     inds = torch.argsort(values, descending=True)
     x = x[inds]
@@ -177,13 +175,13 @@ class GaussianDiffusion(nn.Module):
         nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
         return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise
 
-    # i.e. get samples of x_0 starting from x_T, I think. Might have to remove this no_grad? not sure how though, without impacting training.
+    # i.e. get samples of x_0 starting from x_T, I think. THIS IS USED AFTER TRAINING
     @torch.no_grad()
     def p_sample_loop(self, shape, cond, verbose=True, return_diffusion=False):
         device = self.betas.device
 
         batch_size = shape[0]
-        x = torch.randn(shape, device=device)
+        x = torch.randn(shape, device=device,requires_grad=True)
         x = apply_conditioning(x, cond, self.action_dim)
 
         if return_diffusion: diffusion = [x]
@@ -272,7 +270,7 @@ class GaussianDiffusion_for_guide(nn.Module):
         self.observation_dim = observation_dim
         self.action_dim = action_dim
         self.transition_dim = observation_dim + action_dim
-        self.model = model
+        self.model = model # the Network that learns (e.g. U-Net)
 
         betas = cosine_beta_schedule(n_timesteps)
         alphas = 1. - betas
@@ -303,9 +301,9 @@ class GaussianDiffusion_for_guide(nn.Module):
         ## is 0 at the beginning of the diffusion chain
         self.register_buffer('posterior_log_variance_clipped',
             torch.log(torch.clamp(posterior_variance, min=1e-20)))
-        self.register_buffer('posterior_mean_coef1',
+        self.register_buffer('posterior_mean_coef1', #formula for first term of  mu (eq 7 in 2020 diffusion paper)
             betas * np.sqrt(alphas_cumprod_prev) / (1. - alphas_cumprod))
-        self.register_buffer('posterior_mean_coef2',
+        self.register_buffer('posterior_mean_coef2',#formula for second term of  mu (eq 7 in 2020 diffusion paper)
             (1. - alphas_cumprod_prev) * np.sqrt(alphas) / (1. - alphas_cumprod))
 
         ## get loss coefficients and initialize objective
@@ -342,11 +340,11 @@ class GaussianDiffusion_for_guide(nn.Module):
         return loss_weights
 
     #------------------------------------------ sampling ------------------------------------------#
-
+    # FORMULA FOR x_0 based on x_t and epsilon (see my maths)
     def predict_start_from_noise(self, x_t, t, noise):
         '''
             if self.predict_epsilon, model output is (scaled) noise; #why scaled??
-            otherwise, model predicts x0 directly
+            otherwise, model predicts x0 directly  (ISNT IT ACTUALLY THE OPPOSITE???)
         '''
         if self.predict_epsilon:
             return (
@@ -356,7 +354,7 @@ class GaussianDiffusion_for_guide(nn.Module):
         else:
             return noise
 
-    # posterior q(x_t-1|x_t,x_0)
+    # posterior q(x_t-1|x_t,x_0), i.e. eq 6 and 7 in 2020 diffusion paper
     def q_posterior(self, x_start, x_t, t):
         posterior_mean = (
             extract(self.posterior_mean_coef1, t, x_t.shape) * x_start +
@@ -367,10 +365,16 @@ class GaussianDiffusion_for_guide(nn.Module):
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
 
     
-    # Why does it use the mean and variance of q_posterior to get the mean and variance for p? 
+    # Why does it use the mean and variance of q_posterior to get the mean and variance for p? Because we are trying to decrease KL divergence between those two!
+    # gets mean and var of p(x_t-1|x_t). Note "t" is an input argument
     def p_mean_variance(self, x, cond, t):
-        x_recon = self.predict_start_from_noise(x, t=t, noise=self.model(x, cond, t))
 
+        # the function above takes x_t as argument. And this predicts x0 from it. Why? Dont we have x_0??! only during training I think.
+        #x.register_hook(lambda grad: print(grad))
+        x_recon = self.predict_start_from_noise(x, t=t, noise=self.model(x, cond, t))
+        #x_recon.requires_grad_()
+        print('inside p_mean_var')
+        #x_recon.register_hook(lambda grad: print(grad))
         if self.clip_denoised:
             x_recon.clamp_(-1., 1.)
         else:
@@ -380,12 +384,13 @@ class GaussianDiffusion_for_guide(nn.Module):
                 x_start=x_recon, x_t=x, t=t)
         return model_mean, posterior_variance, posterior_log_variance
     
-    @torch.no_grad()
+    # i.e. get samples of x_0 starting from x_T, I think. This is used after training. SAMPLE FUNCTION IS DIFFERENT FOR GUIDED PLANNING
     def p_sample_loop(self, shape, cond, verbose=True, return_chain=False, sample_fn=default_sample_fn, **sample_kwargs):
         device = self.betas.device
 
         batch_size = shape[0]
         x = torch.randn(shape, device=device,requires_grad=True)
+        #x.register_hook(lambda grad: print(grad))
         x = apply_conditioning(x, cond, self.action_dim)
 
         chain = [x] if return_chain else None
@@ -394,6 +399,7 @@ class GaussianDiffusion_for_guide(nn.Module):
         for i in reversed(range(0, self.n_timesteps)):
             t = make_timesteps(batch_size, i, device)
             x, values = sample_fn(self, x, cond, t, **sample_kwargs)
+            #x.register_hook(lambda grad: print(grad.shape)) #seems to get here with no problem. prints 64 grads, one for each diffusion step?
             x = apply_conditioning(x, cond, self.action_dim)
 
             progress.update({'t': i, 'vmin': values.min().item(), 'vmax': values.max().item()})
@@ -401,11 +407,13 @@ class GaussianDiffusion_for_guide(nn.Module):
 
         progress.stamp()
 
-        x, values = sort_by_values(x, values)
+        x, values = sort_by_values(x, values) # NO IDEA WHY WE DO THIS
         if return_chain: chain = torch.stack(chain, dim=1)
+
         return Sample(x, values, chain)
     
-    @torch.no_grad()
+    # same as above but with conditions
+
     def conditional_sample(self, cond, horizon=None, **sample_kwargs):
         '''
             conditions : [ (time, state), ... ]
@@ -419,6 +427,7 @@ class GaussianDiffusion_for_guide(nn.Module):
 
     #------------------------------------------ training ------------------------------------------#
 
+     # Get sample of q(x_t|x_0) where x_0 is x_start (nothing in this distribution is learnt). Can already have pre-specified noise, or simply sample noise.
     def q_sample(self, x_start, t, noise=None):
         if noise is None:
             noise = torch.randn_like(x_start,requires_grad=True)
@@ -430,12 +439,16 @@ class GaussianDiffusion_for_guide(nn.Module):
 
         return sample
     
+    # get loss based on given x_start (which is x_0)
     def p_losses(self, x_start, cond, t):
-        noise = torch.randn_like(x_start)
 
+        noise = torch.randn_like(x_start,requires_grad=True)
+
+        # get sample of q(x_t|x_0)
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
         x_noisy = apply_conditioning(x_noisy, cond, self.action_dim)
 
+        # get x_0 back from x_t
         x_recon = self.model(x_noisy, cond, t)
         x_recon = apply_conditioning(x_recon, cond, self.action_dim)
 
@@ -468,10 +481,13 @@ class ValueDiffusion(GaussianDiffusion_for_guide):
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
         x_noisy = apply_conditioning(x_noisy, cond, self.action_dim)
 
+        # their model predicts the value based on a noisy version, and on the "t" of that version. That's maybe why they had the time component. We wouldn't need that
         pred = self.model(x_noisy, cond, t)
 
         loss, info = self.loss_fn(pred, target)
         return loss, info
 
+    # not sure why this is different from the forward for previous class. Really dint understand what this does.
+    # ONLY USED FOR GUIDE
     def forward(self, x, cond, t):
         return self.model(x, cond, t)

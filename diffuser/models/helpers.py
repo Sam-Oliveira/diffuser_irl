@@ -86,9 +86,17 @@ def cosine_beta_schedule(timesteps, s=0.008, dtype=torch.float32):
     return torch.tensor(betas_clipped, dtype=dtype)
 
 def apply_conditioning(x, conditions, action_dim):
+    
+    # Original code, fails when x requires_grad
+    #for t, val in conditions.items():
+    #    x[:, t, action_dim:] = val.clone()
+    #return x
+
+    # Code for when x requires_grad
+    z=x.clone()
     for t, val in conditions.items():
-        x[:, t, action_dim:] = val.clone()
-    return x
+        z[:, t, action_dim:] = val.clone()
+    return z
 
 
 #-----------------------------------------------------------------------------#
@@ -122,8 +130,9 @@ class ValueLoss(nn.Module):
 
         if len(pred) > 1:
             corr = np.corrcoef(
-                utils.to_np(pred).squeeze(),
-                utils.to_np(targ).squeeze()
+                # changed these so they dont use utils.to_np(). Not sure if would need to detach
+                pred.squeeze(),
+                targ.squeeze()
             )[0,1]
         else:
             corr = np.NaN

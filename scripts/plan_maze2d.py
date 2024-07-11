@@ -20,7 +20,7 @@ args = Parser().parse_args('plan')
 
 #---------------------------------- loading ----------------------------------#
 
-diffusion_experiment = utils.load_diffusion(args.logbase, args.dataset, args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.seed)
+diffusion_experiment = utils.load_diffusion(args.logbase, args.dataset, args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
 
 diffusion = diffusion_experiment.ema
 dataset = diffusion_experiment.dataset
@@ -57,17 +57,18 @@ for t in range(env.max_episode_steps):
         cond[0] = observation #so cond[0] is the start state. and cond [some index] is the goal state. they get fed to policy (diffuser/guides/policies.py). or gdiffuser/sampling/policies.py for main branch
         # this policy() call basically plans the entire thing based on initial and end state in "cond". Obviously will have to be adapted for guided planning.
         action, samples = policy(cond, batch_size=args.batch_size)
-        actions = samples.actions[0]
+
+        actions = samples.actions[0].detach()
 
         #note it simply gets this sequence at t=0, but then keeos using it throughout. this is the state predictions.
-        sequence = samples.observations[0]
+        sequence = samples.observations[0].detach()
     # pdb.set_trace()
 
     # ####
     if t < len(sequence) - 1:
         next_waypoint = sequence[t+1]
     else:
-        next_waypoint = sequence[-1].copy()
+        next_waypoint = sequence[-1].clone()
         next_waypoint[2:] = 0
         # pdb.set_trace()
 
@@ -87,7 +88,7 @@ for t in range(env.max_episode_steps):
 
 
     # terminal state is given (inpainting)
-    next_observation, reward, terminal, _ = env.step(action)
+    next_observation, reward, terminal, _ = env.step(action.detach())
     total_reward += reward
     score = env.get_normalized_score(total_reward)
     print(
@@ -109,7 +110,7 @@ for t in range(env.max_episode_steps):
     if t % args.vis_freq == 0 or terminal:
         fullpath = join(args.savepath, f'{t}.png')
 
-        if t == 0: renderer.composite(fullpath, samples.observations, ncol=1)
+        if t == 0: renderer.composite(fullpath, samples.observations.detach(), ncol=1)
 
 
         # renderer.render_plan(join(args.savepath, f'{t}_plan.mp4'), samples.actions, samples.observations, state)
@@ -129,7 +130,7 @@ for t in range(env.max_episode_steps):
 # logger.finish(t, env.max_episode_steps, score=score, value=0)
 
 ## save result as a json file
-json_path = join(args.savepath, 'rollout.json')
+json_path = join(args.savepath, 'rollout'+str(args.seed)+'.json')
 json_data = {'score': score, 'step': t, 'return': total_reward, 'term': terminal,
     'epoch_diffusion': diffusion_experiment.epoch}
 json.dump(json_data, open(json_path, 'w'), indent=2, sort_keys=True)

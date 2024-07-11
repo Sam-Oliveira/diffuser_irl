@@ -24,19 +24,18 @@ args = Parser().parse_args('guided_plan')
 
 #---------------------------------- loading ----------------------------------#
 
-diffusion_experiment = utils.load_diffusion(args.logbase, args.dataset, args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.seed)
-
+diffusion_experiment = utils.load_diffusion(args.logbase, args.dataset, args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
 
 value_experiment = utils.load_diffusion(
     args.loadbase, args.dataset, args.value_loadpath,
-    epoch=args.value_epoch, seed=args.seed,
+    epoch=args.value_epoch, seed=args.env_seed,
 )
 
 ## ensure that the diffusion model and value function are compatible with each other
 utils.check_compatibility(diffusion_experiment, value_experiment)
 
 diffusion = diffusion_experiment.ema
-dataset = diffusion_experiment.dataset
+dataset = value_experiment.dataset
 renderer = diffusion_experiment.renderer
 
 ## initialize value guide
@@ -84,7 +83,7 @@ env.set_target()
 rollout = [observation.copy()] #1st observation I think
 
 total_reward = 0
-
+trajectories=[]
 
 
 for t in range(env.max_episode_steps):
@@ -101,20 +100,22 @@ for t in range(env.max_episode_steps):
     ## format current observation for conditioning (NO IMPAINTING)
     conditions = {0: observation}
 
-    
-
     #i think basically we take 1 step, and plan again every time! (in rollout image. in plan, it's just the plan at first step)
     action, samples = policy(conditions, batch_size=args.batch_size, verbose=args.verbose)
 
+    #print(type(action))
+    #print(type(observation))
+    trajectories.append(np.concatenate((action.detach().numpy(),observation)))
+
     ## execute action in environment
-    next_observation, reward, terminal, _ = env.step(action)
+    next_observation, reward, terminal, _ = env.step(action.detach().numpy())
 
     ## print reward and score
     total_reward += reward
     score = env.get_normalized_score(total_reward)
     print(
         f't: {t} | r: {reward:.2f} |  R: {total_reward:.2f} | score: {score:.4f} | '
-        f'{action}'
+        f'{action.detach().numpy()}'
     )
 
     # just for printing
@@ -125,14 +126,14 @@ for t in range(env.max_episode_steps):
             f'maze | pos: {xy} | goal: {goal}'
         )
 
-    ## update rollout observations
+    ## update rollout observations. Note this does not include actions! Rollout is a list of nparrays, each of them is the current state at a step
     rollout.append(next_observation.copy())
 
     # logger.log(score=score, step=t)
     if t % args.vis_freq == 0 or terminal:
         fullpath = join(args.savepath, f'{t}.png')
 
-        if t == 0: renderer.composite(fullpath, samples.observations, ncol=1)
+        if t == 0: renderer.composite(fullpath, samples.observations.detach().numpy() , ncol=1)
 
 
         # renderer.render_plan(join(args.savepath, f'{t}_plan.mp4'), samples.actions, samples.observations, state)
@@ -152,7 +153,11 @@ for t in range(env.max_episode_steps):
 # logger.finish(t, env.max_episode_steps, score=score, value=0)
 
 ## save result as a json file
-json_path = join(args.savepath, 'rollout.json')
+json_path = join(args.savepath, 'rollout'+str(args.seed)+'.json')
+
+# Trajectories is list of np arrays. Transform to list of lists for json file
+trajectories=[t.tolist() for t in trajectories]
+
 json_data = {'score': score, 'step': t, 'return': total_reward, 'term': terminal,
-    'epoch_diffusion': diffusion_experiment.epoch}
+    'epoch_diffusion': diffusion_experiment.epoch,'rollout':trajectories}
 json.dump(json_data, open(json_path, 'w'), indent=2, sort_keys=True)

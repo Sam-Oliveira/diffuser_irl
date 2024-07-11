@@ -84,9 +84,10 @@ base = {
     },
 
     'plan': {
-        'batch_size': 1,
+        'batch_size': 10,
         'device': 'cpu',
-        'seed':13, #seed for environment
+        'seed':13, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
+        'env_seed':13, #seed for env
 
         ## diffusion model
         'horizon': 256,
@@ -169,11 +170,62 @@ base = {
         'stop_grad':False,
         'scale_grad_by_std': True,
         'conditional': False,
-        'seed': 15, #seed for environment!
+        'seed': 40, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
+        'env_seed':13, #seed for environment
 
         ## serialization
         'loadbase': None,
-        'vis_freq': 4, # i think it's how often it renders
+        'vis_freq': 10, # i think it's how often it renders
+        'logbase': 'logs',
+        'prefix': 'plans/guided',
+        'exp_name': watch(plan_args_to_watch),
+        'suffix': '0',
+
+        ## value function
+        'discount': 0.995,
+
+        ## diffusion model
+        'horizon': 256,
+        'n_diffusion_steps': 256,
+        'normalizer': 'LimitsNormalizer',
+
+        ## loading
+        'diffusion_loadpath': 'f:diffusion/H{horizon}_T{n_diffusion_steps}',
+        'value_loadpath': 'f:values/H{horizon}_T{n_diffusion_steps}_d{discount}',
+
+        'diffusion_epoch': 'latest',
+        'value_epoch': 'latest',
+
+        'verbose': True,
+    },
+
+    'guided_learning': {
+        'guide': 'sampling.ValueGuide',
+        'policy': 'sampling.GuidedPolicy',
+        'max_episode_length': 1000,
+        'batch_size': 1,
+        'dim_mults': (1, 4, 8),
+        'device': 'cpu',
+
+        'termination_penalty': None,
+        'preprocess_fns': [], #I think separates dataset into the different episodes based on timeouts
+        'clip_denoised': True,
+        'use_padding': False,
+        'max_path_length': 4000, #changed this, as giovanni said he had changed it
+
+        ## sample_kwargs (Idk what these do)
+        'n_guide_steps': 2, #the amount of steps actually taken in the environment based on each plan? just about how many steps of opt process we take in direction of guide gradient I think
+        'scale': 0.1,
+        't_stopgrad': 2, #no idea what this is supposed to do mathematically
+        'stop_grad':False,
+        'scale_grad_by_std': True,
+        'conditional': False,
+        'seed': 40, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
+        'env_seed':13, #seed for environment
+
+        ## serialization
+        'loadbase': None,
+        'vis_freq': 10, # i think it's how often it renders
         'logbase': 'logs',
         'prefix': 'plans/guided',
         'exp_name': watch(plan_args_to_watch),
@@ -222,6 +274,10 @@ maze2d_umaze_v1 = {
         'n_diffusion_steps': 64,
     },
     'guided_plan': {
+        'horizon': 128,
+        'n_diffusion_steps': 64,
+    },
+    'guided_learning': {
         'horizon': 128,
         'n_diffusion_steps': 64,
     },

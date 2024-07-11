@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.interpolate as interpolate
 import pdb
+import torch
 
 POINTMASS_KEYS = ['observations', 'actions', 'next_observations', 'deltas']
 
@@ -174,7 +175,7 @@ class LimitsNormalizer(Normalizer):
         ## [ -1, 1 ] --> [ 0, 1 ]
         x = (x + 1) / 2.
 
-        return x * (self.maxs - self.mins) + self.mins
+        return x * (torch.from_numpy(self.maxs) - torch.from_numpy(self.mins)) + torch.from_numpy(self.mins)
 
 class SafeLimitsNormalizer(LimitsNormalizer):
     '''

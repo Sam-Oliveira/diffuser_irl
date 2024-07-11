@@ -16,16 +16,17 @@ class ValueGuide(nn.Module):
     # this is the gradient that is used in equation (3) in paper, to guide the reverse process!
     def gradients(self, x, stop_grad,*args):
         x.requires_grad_()
+        y = self(x, *args) # this calls ValueDiffusion
 
-        y = self(x, *args)
-        
-        # CHANGED GRAD WHILE VALUE FUNCTION IS A CONSTANT
-        #grad=torch.ones(x.shape,requires_grad=True)
-        grad = torch.autograd.grad([y.sum()], [x])[0]
+         #create_graph=True makes it so that a second derivative (now w.r.t. value model parameters) can be taken
+        grad = torch.autograd.grad([y.sum()], [x],create_graph=True)[0]
 
         if stop_grad:
             grad=torch.zeros_like(grad)
             #print(grad)
 
-        x.detach()
+        # added to try not to break comp graph
+        grad.requires_grad_()
+
+        #x.detach() #this was in the original code but I don't think we need this anymore?!
         return y, grad

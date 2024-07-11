@@ -24,20 +24,24 @@ class GuidedPolicy:
         conditions = {k: self.preprocess_fn(v) for k, v in conditions.items()}
         conditions = self._format_conditions(conditions, batch_size)
 
-        ## run reverse diffusion process
+        ## run reverse diffusion process (I think it calls ValueDiffusion in diffuser/models/diffusion.py, but doesnt rly make sense cause that expects a t argument
+        # IT SEEMS THIS CALLS FIRST THE BASE DIFFUSION AND ONLY THEN THE VALUEDIFFUSION GETS CALLED SOMEHOW. theory simply based on printing messages, no idea what is actually happening
+        #print('HERE')
         samples = self.diffusion_model(conditions, guide=self.guide, verbose=verbose, **self.sample_kwargs)
-        trajectories = utils.to_np(samples.trajectories)
+
+        #print('THERE')
+        trajectories = samples.trajectories
 
         ## extract action [ batch_size x horizon x transition_dim ]
         actions = trajectories[:, :, :self.action_dim]
         actions = self.normalizer.unnormalize(actions, 'actions')
-
+        #actions.register_hook(lambda grad: print(grad))
         ## extract first action (of first element of batch i believe)
         action = actions[0, 0]
 
         normed_observations = trajectories[:, :, self.action_dim:]
         observations = self.normalizer.unnormalize(normed_observations, 'observations')
-
+        #observations.register_hook(lambda grad: print(grad))
         trajectories = Trajectories(actions, observations, samples.values)
         return action, trajectories
 

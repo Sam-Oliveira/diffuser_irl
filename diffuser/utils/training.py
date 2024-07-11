@@ -181,7 +181,7 @@ class Trainer(object):
         dataloader_tmp.close()
 
         ## get trajectories and condition at t=0 from batch
-        trajectories = to_np(batch.trajectories)
+        trajectories = batch.trajectories.detach()
         conditions = to_np(batch.conditions[0])[:,None]
 
         ## [ batch_size x horizon x observation_dim ]
@@ -221,21 +221,22 @@ class Trainer(object):
             #samples = self.ema_model.conditional_sample(conditions)
             #samples = to_np(samples)
             samples=self.ema_model(conditions)
-            samples=to_np(samples.trajectories)
+            samples=samples.trajectories.detach()
 
             ## [ n_samples x horizon x observation_dim ]
             normed_observations = samples[:, :, self.dataset.action_dim:]
 
             # [ 1 x 1 x observation_dim ]
-            normed_conditions = to_np(batch.conditions[0])[:,None]
+            normed_conditions = batch.conditions[0][:,None]
 
             # from diffusion.datasets.preprocessing import blocks_cumsum_quat
             # observations = conditions + blocks_cumsum_quat(deltas)
             # observations = conditions + deltas.cumsum(axis=1)
 
             ## [ n_samples x (horizon + 1) x observation_dim ]
-            normed_observations = np.concatenate([
-                np.repeat(normed_conditions, n_samples, axis=0),
+            normed_observations = torch.cat([
+                torch.repeat_interleave(normed_conditions, n_samples, dim=0),
+                #torch.from_numpy(np.repeat(normed_conditions.detach().numpy(), n_samples, axis=0)), (ALTERNATIVE TO LINE ABOVE)
                 normed_observations
             ], axis=1)
 

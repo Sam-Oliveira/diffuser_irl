@@ -33,8 +33,9 @@ def load_config(*loadpath):
     print(config)
     return config
 
-def load_untrained_value(*loadpath, epoch='latest', device='cpu'):
-    model_config = load_config(*loadpath, 'model_config.pkl')
+#def load_untrained_value(*loadpath, epoch='latest', device='cpu'):
+#    model_config = load_config(*loadpath, 'model_config.pkl')
+#    return model_config
 
 
 def load_diffusion(*loadpath, epoch='latest', device='cpu', seed=None):
