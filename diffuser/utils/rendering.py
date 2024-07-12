@@ -350,6 +350,60 @@ class Maze2dRenderer(MazeRenderer):
         if conditions is not None:
             conditions /= scale
         return super().renders(observations, conditions, **kwargs)
+        
+    def composite_reward_function(self, savepath, paths, ncol=5, **kwargs):
+        '''
+            savepath : str
+            observations : [ n_paths x horizon x 2 ]
+        '''
+
+        assert len(paths) % ncol == 0, 'Number of paths must be divisible by number of columns'
+
+        images = []
+        for path, kw in zipkw(paths, **kwargs):
+            img = self.render_reward(*path, **kw)
+            images.append(img)
+        images = np.stack(images, axis=0)
+
+        nrow = len(images) // ncol
+        images = einops.rearrange(images,
+            '(nrow ncol) H W C -> (nrow H) (ncol W) C', nrow=nrow, ncol=ncol)
+        imageio.imsave(savepath, images)
+        print(f'Saved {len(paths)} samples to: {savepath}')
+
+    def render_reward(self, values, conditions=None, title=None):
+        bounds = MAZE_BOUNDS[self.env_name]
+
+        if len(bounds) == 2:
+            _, scale = bounds
+            #observations /= scale
+        elif len(bounds) == 4:
+            _, iscale, _, jscale = bounds
+            #observations[:, 0] /= iscale
+            #observations[:, 1] /= jscale
+        else:
+            raise RuntimeError(f'Unrecognized bounds for {self.env_name}: {bounds}')
+
+        if conditions is not None:
+            conditions /= scale
+
+        plt.clf()
+        fig = plt.gcf()
+        fig.set_size_inches(5, 5)
+        plt.imshow(self._background * .5,
+            extent=self._extent, cmap=plt.cm.binary, vmin=0, vmax=1)
+
+        # Plot the overlay using a different colormap
+        #plt.imshow(values, cmap='viridis_r', vmin=0, vmax=1)
+        inner_extent=(0, 1,1, 0)
+        plt.imshow(values, extent=inner_extent, interpolation='bilinear', cmap='viridis', alpha=0.8)
+        plt.axis('off')
+        plt.title(title)
+        plt.colorbar()
+        img = plot2img(fig, remove_margins=self._remove_margins)
+        return img
+
+
 
 #-----------------------------------------------------------------------------#
 #---------------------------------- rollouts ---------------------------------#

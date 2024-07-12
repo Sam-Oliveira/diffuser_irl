@@ -26,10 +26,9 @@ class GuidedPolicy:
 
         ## run reverse diffusion process (I think it calls ValueDiffusion in diffuser/models/diffusion.py, but doesnt rly make sense cause that expects a t argument
         # IT SEEMS THIS CALLS FIRST THE BASE DIFFUSION AND ONLY THEN THE VALUEDIFFUSION GETS CALLED SOMEHOW. theory simply based on printing messages, no idea what is actually happening
-        #print('HERE')
+        
         samples = self.diffusion_model(conditions, guide=self.guide, verbose=verbose, **self.sample_kwargs)
 
-        #print('THERE')
         trajectories = samples.trajectories
 
         ## extract action [ batch_size x horizon x transition_dim ]

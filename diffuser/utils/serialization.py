@@ -64,6 +64,32 @@ def load_diffusion(*loadpath, epoch='latest', device='cpu', seed=None):
 
     return DiffusionExperiment(dataset, renderer, model, diffusion, trainer.ema_model, trainer, epoch)
 
+def load_diffusion_learnt_reward(*loadpath, epoch='latest', device='cpu', seed=None): #function to load the reward model when we have just learnt it (guided_learnt_reward.py)
+    dataset_config = load_config(*loadpath, 'dataset_config.pkl')
+    render_config = load_config(*loadpath, 'render_config.pkl')
+    model_config = load_config(*loadpath, 'model_config.pkl')
+    diffusion_config = load_config(*loadpath, 'diffusion_config.pkl')
+    trainer_config = load_config(*loadpath, 'trainer_config.pkl')
+
+    ## remove absolute path for results loaded from azure
+    ## @TODO : remove results folder from within trainer class
+    trainer_config._dict['results_folder'] = os.path.join(*loadpath)
+
+    dataset = dataset_config(seed=seed)
+    renderer = render_config()
+    model = model_config()
+    diffusion = diffusion_config(model)
+    trainer = trainer_config(diffusion, dataset, renderer)
+
+    if epoch == 'latest':
+        epoch = get_latest_epoch(loadpath)
+
+    print(f'\n[ utils/serialization ] Loading model epoch: {epoch}\n')
+
+    trainer.load_learnt(epoch) #this is what changes!
+
+    return DiffusionExperiment(dataset, renderer, model, diffusion, trainer.ema_model, trainer, epoch)
+
 def check_compatibility(experiment_1, experiment_2):
     '''
         returns True if `experiment_1 and `experiment_2` have

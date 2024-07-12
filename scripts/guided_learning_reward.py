@@ -181,13 +181,21 @@ for e in range(epochs):
     loss_array.append(curr_loss)
 
 
-#torch.save(value_function.model.state_dict(),'logs/maze2d-umaze-v1/values/trained_reward.pt')
+#data = {
+#        'step': value_function.step,
+#        'model': value_function.model.state_dict(),
+#        'ema': value_function.ema_model.state_dict()
+#}
+
+# NOTE: SAVE WITHOUT .model. so that the parameters have name model.fc.weight instead of fc.weight, and thus match what load() function in training.py expects! 
+torch.save(value_function.state_dict(),'logs/maze2d-umaze-v1/values/trained_reward.pt')
 
 plt.figure()
 plt.plot(loss_array)
 plt.show()
 
-model_trained=torch.load('logs/maze2d-umaze-v1/values/trained_reward.pt')
+
+#model_trained=torch.load('logs/maze2d-umaze-v1/values/state_10000.pt')
 
 #print(len(model_trained['fc.weight']))
 #for param in model_trained['fc.weight']:

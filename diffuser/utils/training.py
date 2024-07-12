@@ -157,12 +157,21 @@ class Trainer(object):
         '''
         loadpath = os.path.join(self.logdir, f'state_{epoch}.pt')
         data = torch.load(loadpath)
-
+        #print(data)
         self.step = data['step']
 
         # WILL PROBABLY HAVE TO CHANGE THIS SO MODELS ARE LOADED FOR EVAL WHEN I'M TRYING TO DO GUIDED PLANNING
         self.model.load_state_dict(data['model'])
         self.ema_model.load_state_dict(data['ema'])
+
+    def load_learnt(self,epoch): # function I created to load the model when we have trained the reward model! because in that way we dont have step or ema attributes
+        '''
+            loads model and ema from disk
+        '''
+        loadpath = os.path.join(self.logdir, f'state_{epoch}.pt')
+        data = torch.load(loadpath)
+        self.model.load_state_dict(data)
+
 
     #-----------------------------------------------------------------------------#
     #--------------------------------- rendering ---------------------------------#
@@ -234,6 +243,13 @@ class Trainer(object):
             # observations = conditions + deltas.cumsum(axis=1)
 
             ## [ n_samples x (horizon + 1) x observation_dim ]
+
+            # PREVIOUSLY (changed when creating the initial reward learning - commit of 11th July)
+            #normed_observations = np.concatenate([
+            #    np.repeat(normed_conditions, n_samples, axis=0),
+            #    normed_observations
+            #], axis=1)
+            # NOW
             normed_observations = torch.cat([
                 torch.repeat_interleave(normed_conditions, n_samples, dim=0),
                 #torch.from_numpy(np.repeat(normed_conditions.detach().numpy(), n_samples, axis=0)), (ALTERNATIVE TO LINE ABOVE)

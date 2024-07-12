@@ -249,6 +249,50 @@ base = {
         'verbose': True,
     },
 
+    'guided_learnt_reward': {
+        'guide': 'sampling.ValueGuide',
+        'policy': 'sampling.GuidedPolicy',
+        'max_episode_length': 1000,
+        'batch_size': 1,
+        'preprocess_fns': [], #think i might need the maze2d function from above. check what is does
+        'device': 'cpu',
+
+        ## sample_kwargs (Idk what these do)
+        'n_guide_steps': 2, #the amount of steps actually taken in the environment based on each plan? just about how many steps of opt process we take in direction of guide gradient I think
+        'scale': 0.1,
+        't_stopgrad': 2, #no idea what this is supposed to do mathematically
+        'stop_grad':False,
+        'scale_grad_by_std': True,
+        'conditional': False,
+        'seed': 40, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
+        'env_seed':13, #seed for environment
+
+        ## serialization
+        'loadbase': None,
+        'vis_freq': 10, # i think it's how often it renders
+        'logbase': 'logs',
+        'prefix': 'plans/guided_learnt_reward',
+        'exp_name': watch(plan_args_to_watch),
+        'suffix': '0',
+
+        ## value function
+        'discount': 0.995,
+
+        ## diffusion model
+        'horizon': 256,
+        'n_diffusion_steps': 256,
+        'normalizer': 'LimitsNormalizer',
+
+        ## loading
+        'diffusion_loadpath': 'f:diffusion/H{horizon}_T{n_diffusion_steps}',
+        'value_loadpath': 'f:values/H{horizon}_T{n_diffusion_steps}_d{discount}',
+
+        'diffusion_epoch': 'latest',
+        'value_epoch': 'latest',
+
+        'verbose': True,
+    },
+
 }
 
 #------------------------ overrides ------------------------#
@@ -278,6 +322,10 @@ maze2d_umaze_v1 = {
         'n_diffusion_steps': 64,
     },
     'guided_learning': {
+        'horizon': 128,
+        'n_diffusion_steps': 64,
+    },
+    'guided_learnt_reward': {
         'horizon': 128,
         'n_diffusion_steps': 64,
     },
