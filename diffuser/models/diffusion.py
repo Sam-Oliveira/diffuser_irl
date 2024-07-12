@@ -18,6 +18,7 @@ Sample = namedtuple('Sample', 'trajectories values chains')
 
 
 # function that does one reverse step I believe 
+@torch.no_grad()
 def default_sample_fn(model, x, cond, t):
     model_mean, _, model_log_variance = model.p_mean_variance(x=x, cond=cond, t=t)
     model_std = torch.exp(0.5 * model_log_variance)

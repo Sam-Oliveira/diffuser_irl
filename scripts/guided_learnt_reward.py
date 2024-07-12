@@ -86,7 +86,7 @@ total_reward = 0
 trajectories=[]
 
 value_function.model.eval()
-"""
+
 for t in range(env.max_episode_steps):
 
 
@@ -163,7 +163,7 @@ for t in range(env.max_episode_steps):
 #    'epoch_diffusion': diffusion_experiment.epoch,'rollout':trajectories}
 #json.dump(json_data, open(json_path, 'w'), indent=2, sort_keys=True)
 
-"""
+
 
 # Flag to load the good model while I haven't retrained it to be able to do guided sampling with it
 good_model=True

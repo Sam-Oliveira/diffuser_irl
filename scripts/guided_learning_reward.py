@@ -29,7 +29,7 @@ args = Parser().parse_args('guided_learning')
 
 diffusion_experiment = utils.load_diffusion(args.logbase, args.dataset, args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
 
-value_experiment = utils.load_diffusion(
+value_experiment = utils.load_diffusion_learnt_reward( # changed this function, instead of just being load_diffusion()
     args.loadbase, args.dataset, args.value_loadpath,
     epoch=args.value_epoch, seed=args.env_seed,
 )
@@ -86,6 +86,9 @@ env.set_target()
 path_to_json = 'logs/maze2d-umaze-v1/plans/guided_H128_T64_d0.995_LimitsNormalizer_b1_stop-gradFalse_condFalse/0/'
 json_files = [pos_json for pos_json in os.listdir(path_to_json) if pos_json.startswith('rollout') and pos_json.endswith('.json')]
 
+# Dataset size depends on the step_size 
+step_size=10
+
 expert_trajectories=torch.empty((0,env.max_episode_steps,dataset.observation_dim+dataset.action_dim))
 for file in range(len(json_files)):
     with open(path_to_json+json_files[file]) as json_data:
@@ -116,9 +119,9 @@ for e in range(epochs):
     curr_loss=0
     for exp_traj in range(numb_exp_trajectories):
         
-        for step in range(expert_trajectories.shape[1]-10):
+        for step in range(expert_trajectories.shape[1]-step_size):
             
-            if step%10==0:
+            if step % step_size==0:
                 
                 # Condition on state of expert trajectory
                 observation=expert_trajectories[exp_traj,step,2:]
@@ -130,14 +133,14 @@ for e in range(epochs):
                 action, samples = policy(conditions, batch_size=args.batch_size, verbose=args.verbose)
 
                 #sampled_trajectories.append(np.concatenate((action.copy(),observation.copy())))
-                target = expert_trajectories[exp_traj:exp_traj+1,step:step+10,:]
+                target = expert_trajectories[exp_traj:exp_traj+1,step:step+step_size,:]
                 target=target.to(torch.float32) # to match prediction 
                 #target=torch.squeeze(target)
                 
                 #sample_actions=torch.from_numpy(samples.actions[:,:10,:])
                 #sample_observations=torch.from_numpy(samples.observations[:,:10,:])
-                sample_actions=samples.actions[:,:10,:]
-                sample_observations=samples.observations[:,:10,:]
+                sample_actions=samples.actions[:,:step_size,:]
+                sample_observations=samples.observations[:,:step_size,:]
 
                 prediction=torch.cat((sample_actions,sample_observations),dim=-1)
                 #prediction.register_hook(lambda grad: print(grad))
@@ -165,7 +168,7 @@ for e in range(epochs):
                 #make_dot(loss_value).view()
 
                 # FIGURED GRAD FOR WEIGHTS BUT NOT FOR BIAS
-                #print(list(value_function.parameters())[0].grad)
+                print(list(value_function.parameters())[0].grad)
                 #print(list(value_function.model.parameters())[1])
                 #print(list(value_function.model.parameters())[1].grad)
 
