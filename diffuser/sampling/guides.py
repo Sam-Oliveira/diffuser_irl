@@ -18,7 +18,7 @@ class ValueGuide(nn.Module):
         #x.requires_grad_()
         y = self(x, *args) # this calls ValueDiffusion
 
-         #create_graph=True makes it so that a second derivative (now w.r.t. value model parameters) can be taken
+        #create_graph=True makes it so that a second derivative (now w.r.t. value model parameters) can be taken
         grad = torch.autograd.grad([y.sum()], [x],create_graph=True)[0]
 
         if stop_grad:

@@ -34,6 +34,15 @@ plan_args_to_watch = [
     ##
     ('stop_grad', 'stop-grad'),
     ('conditional', 'cond'),
+    ('env_seed','env_seed'),
+]
+
+learn_reward_args_to_watch = [
+    ('prefix', ''),
+    ('horizon', 'H'),
+    ('n_diffusion_steps', 'T'),
+    ('discount','d'),
+    ('env_seed','env_seed'),
 ]
 
 base = {
@@ -170,7 +179,7 @@ base = {
         'stop_grad':False,
         'scale_grad_by_std': True,
         'conditional': False,
-        'seed': 40, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
+        'seed': 50, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
         'env_seed':13, #seed for environment
 
         ## serialization
@@ -228,7 +237,7 @@ base = {
         'vis_freq': 10, # i think it's how often it renders
         'logbase': 'logs',
         'prefix': 'plans/guided',
-        'exp_name': watch(plan_args_to_watch),
+        'exp_name': watch(learn_reward_args_to_watch),
         'suffix': '0',
 
         ## value function
@@ -265,7 +274,7 @@ base = {
         'scale_grad_by_std': True,
         'conditional': False,
         'seed': 40, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
-        'env_seed':13, #seed for environment
+        'env_seed':15, #seed for environment
 
         ## serialization
         'loadbase': None,

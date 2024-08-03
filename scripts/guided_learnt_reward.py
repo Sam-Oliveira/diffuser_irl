@@ -86,6 +86,8 @@ total_reward = 0
 trajectories=[]
 
 value_function.model.eval()
+#print(args.value_loadpath)
+
 
 for t in range(env.max_episode_steps):
 
@@ -166,19 +168,21 @@ for t in range(env.max_episode_steps):
 
 
 # Flag to load the good model while I haven't retrained it to be able to do guided sampling with it
-good_model=True
+good_model=False
 
 if good_model:
-    model_trained=torch.load('logs/maze2d-umaze-v1/values/H128_T64_d0.995/good_model.pt')
-    parameter=model_trained['fc.weight']
+    print('here')
+    model_trained=torch.load('logs/maze2d-umaze-v1/values/H128_T64_d0.995/state_500.pt')
+    parameter=model_trained['model.fc.weight']
 else:
     for name,param in value_function.model.named_parameters():
         if name=='fc.weight':
+            #print(param)
             parameter=param.detach().numpy()
                  
 #print(parameter)
-x=np.linspace(1,4,num=30)
-y=np.linspace(1,4,num=30)
+x=np.linspace(-1,1,num=30)
+y=np.linspace(-1,1,num=30)
 xv,yv=np.meshgrid(x,y,indexing='ij')
 
 
@@ -186,17 +190,19 @@ xv,yv=np.meshgrid(x,y,indexing='ij')
 #print(yv[0,-1])
 
 # JUST TRUST THAT THE FIRST IS YV AND THE SECOND IS XV. THAT IS THE WAY THE PLOTTING WILL WORK PROPERLY, EVEN IF NOT FULLY UNDERSTOOD.
-values=np.multiply(yv,parameter[0,2])+np.multiply(xv,parameter[0,3])
+numb_steps=[0,1,2,3,4,5,10,20]
+for step in numb_steps:
+    values=np.multiply(yv,parameter[0,2+6*step])+np.multiply(xv,parameter[0,3+6*step])
 
-#print(parameter[0,8])
-#print(parameter[0,9])
-#print(values[0,0])
-#print(values[-1,-1])
-#print(values[0,-1])
-#print(values[-1,0])
-values=np.pad(values,((10,10),(10,10)),mode='constant',constant_values=(np.nan,)) #for maze limits
-values[20:30,10:30]=np.nan #for maze limits!
-#print(values.shape)
+    print(parameter[0,2+6*step])
+    print(parameter[0,3+6*step])
+    #print(values[0,0])
+    #print(values[-1,-1])
+    #print(values[0,-1])
+    #print(values[-1,0])
+    values=np.pad(values,((10,10),(10,10)),mode='constant',constant_values=(np.nan,)) #for maze limits
+    values[20:30,10:30]=np.nan #for maze limits!
+    #print(values.shape)
 
-#print(values)
-renderer.composite_reward_function(join(args.savepath, 'values.png'), np.array(values)[None], ncol=1)
+    #print(values)
+    renderer.composite_reward_function(join(args.savepath, 'values_{s}.png'.format(s=step)), np.array(values)[None], ncol=1)

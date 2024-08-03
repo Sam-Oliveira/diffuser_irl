@@ -4,6 +4,7 @@ import einops
 import imageio
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
+import matplotlib.colors as clr
 import gym
 import mujoco_py as mjc
 import warnings
@@ -296,6 +297,13 @@ class MazeRenderer:
         colors = plt.cm.jet(np.linspace(0,1,path_length))
         plt.plot(observations[:,1], observations[:,0], c='black', zorder=10)
         plt.scatter(observations[:,1], observations[:,0], c=colors, zorder=20)
+        norm_map=clr.Normalize(vmin=0, vmax=1)
+        cbar=plt.colorbar(plt.cm.ScalarMappable(norm=norm_map, cmap='jet_r'),shrink=0.8)
+        cbar.ax.get_yaxis().labelpad = 20
+        #plt.gcf().axes[1].set(title='Beginning', xlabel='End')
+        cbar.ax.set_title('Beginning')
+        cbar.ax.set_xlabel('End',fontsize=14)
+        cbar.set_ticks([])
         plt.axis('off')
         plt.title(title)
         img = plot2img(fig, remove_margins=self._remove_margins)
@@ -399,7 +407,10 @@ class Maze2dRenderer(MazeRenderer):
         plt.imshow(values, extent=inner_extent, interpolation='bilinear', cmap='viridis', alpha=0.8)
         plt.axis('off')
         plt.title(title)
-        plt.colorbar()
+        cbar=plt.colorbar(shrink=0.8)
+        cbar.ax.get_yaxis().labelpad = 20
+        cbar.ax.set_ylabel('Reward for state',rotation=270,fontsize=12)
+        cbar.ax.tick_params(labelsize=12)
         img = plot2img(fig, remove_margins=self._remove_margins)
         return img
 

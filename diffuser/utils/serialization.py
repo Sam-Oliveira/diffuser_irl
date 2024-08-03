@@ -88,7 +88,7 @@ def load_diffusion_learnt_reward(*loadpath, epoch='latest', device='cpu', seed=N
 
     trainer.load_learnt(epoch) #this is what changes!
 
-    return DiffusionExperiment(dataset, renderer, model, diffusion, trainer.ema_model, trainer, epoch)
+    return DiffusionExperiment(dataset, renderer, model, diffusion, trainer.model, trainer, epoch)
 
 def check_compatibility(experiment_1, experiment_2):
     '''

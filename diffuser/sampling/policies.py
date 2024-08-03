@@ -23,7 +23,7 @@ class GuidedPolicy:
     def __call__(self, conditions, batch_size=1, verbose=True):
         conditions = {k: self.preprocess_fn(v) for k, v in conditions.items()}
         conditions = self._format_conditions(conditions, batch_size)
-
+        #print(conditions)
         ## run reverse diffusion process (I think it calls ValueDiffusion in diffuser/models/diffusion.py, but doesnt rly make sense cause that expects a t argument
         # IT SEEMS THIS CALLS FIRST THE BASE DIFFUSION AND ONLY THEN THE VALUEDIFFUSION GETS CALLED SOMEHOW. theory simply based on printing messages, no idea what is actually happening
         

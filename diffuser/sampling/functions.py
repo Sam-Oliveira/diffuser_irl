@@ -23,6 +23,7 @@ def n_step_guided_p_sample(
             y, grad = guide.gradients(x, stop_grad,cond, t)
         if scale_grad_by_std:
             grad = model_var * grad
+        #grad.register_hook(lambda grad: print(torch.norm(grad)))
         #grad.register_hook(lambda grad: print(grad))
         grad[t < t_stopgrad] = 0
         #grad.register_hook(lambda grad: print(grad))

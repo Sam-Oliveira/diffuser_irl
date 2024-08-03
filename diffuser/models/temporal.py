@@ -167,9 +167,10 @@ class ValueFunction(nn.Module):
 
         # NN to learn reward of function below
 
-        x=torch.flatten(x)
+        x=torch.flatten(x,start_dim=1) #changed this and the return a bit on 13th July
         x = self.fc(x)
-        return x.unsqueeze(dim=0)
+
+        return x
 
         # NON-NN FUNCTION
 
@@ -178,9 +179,21 @@ class ValueFunction(nn.Module):
         x=x[:,2:4,:]
         x=torch.sum(x,dim=1)
         x=torch.sum(x,dim=1,keepdim=True)
-
         return 5*x
     
+        # DIFF NON-NN FUNCTION
+        #x=x[:,2:4,:]
+        #new_x= x[:,0,:] - x[:,1,:]
+        #new_x=torch.sum(new_x,dim=1,keepdim=True)
+        #return 5*new_x
+
+        # THIRD NON-NN FUNCTION
+        x=x[:,2:4,:]
+        new_x= x[:,1,:]
+        new_x=torch.sum(new_x,dim=1,keepdim=True)
+        return 5*new_x
+    
+
         #return x.reshape((1,x.shape[0]))
 
         x=torch.flatten(x,start_dim=1)

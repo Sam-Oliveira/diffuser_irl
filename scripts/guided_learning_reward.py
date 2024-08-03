@@ -11,7 +11,8 @@ from diffuser.guides.policies import Policy
 import diffuser.datasets as datasets
 import diffuser.utils as utils
 import diffuser.sampling as sampling
-
+from torch.utils.data import DataLoader
+from diffuser.models.helpers import MMD
 
 class Parser(utils.Parser):
     dataset: str = 'maze2d-umaze-v1'
@@ -29,7 +30,7 @@ args = Parser().parse_args('guided_learning')
 
 diffusion_experiment = utils.load_diffusion(args.logbase, args.dataset, args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
 
-value_experiment = utils.load_diffusion_learnt_reward( # changed this function, instead of just being load_diffusion()
+value_experiment = utils.load_diffusion( # changed this function, instead of just being load_diffusion()
     args.loadbase, args.dataset, args.value_loadpath,
     epoch=args.value_epoch, seed=args.env_seed,
 )
@@ -83,7 +84,7 @@ env.set_target()
 
 
 # Load expert trajectories
-path_to_json = 'logs/maze2d-umaze-v1/plans/guided_H128_T64_d0.995_LimitsNormalizer_b1_stop-gradFalse_condFalse/0/'
+path_to_json = 'logs/maze2d-umaze-v1/plans/guided_H128_T64_d0.995_LimitsNormalizer_b1_stop-gradFalse_condFalse_env_seed13/0/'
 json_files = [pos_json for pos_json in os.listdir(path_to_json) if pos_json.startswith('rollout') and pos_json.endswith('.json')]
 
 # Dataset size depends on the step_size 
@@ -98,25 +99,74 @@ for file in range(len(json_files)):
     expert_trajectories=torch.cat((expert_trajectories, file_torch.unsqueeze(0)))
 
 # Expert trajectories tensor is numb_trajectories x steps of rollout x state and action dim (=6)
-
-
+"""
+# Now basically make it so each datapoint isnt an entire trajectory, but each "step_size"-length section of a trajectory
+expert_trajectories=torch.flatten(expert_trajectories,start_dim=0,end_dim=1)
+expert_trajectories=torch.split(expert_trajectories,step_size,dim=0)
+expert_trajectories=torch.stack(expert_trajectories,dim=0)
+#train_dataloader = DataLoader(expert_trajectories, batch_size=1, shuffle=True)
+"""
 # Arguments
-epochs=200
+
+print(expert_trajectories.shape[0])
+epochs=500
 n_samples_per_epoch=expert_trajectories.shape[0]
 numb_exp_trajectories=len(expert_trajectories)
 
 
         
 loss = torch.nn.MSELoss()
+
 optimizer = torch.optim.Adam(value_function.model.parameters(), lr=2e-4)
 
-#print(list(value_function.model.parameters())[1].grad)
 
 
 loss_array=[]
 for e in range(epochs):
     print("EPOCH "+str(e))
     curr_loss=0
+
+    # THIS IS IN CASE DATA WAS SPLIT AS ABOVE
+    """
+    for i in range(expert_trajectories.shape[0]):
+        observation=expert_trajectories[i,0,2:]
+        #print(observation)
+        conditions={0:observation}
+
+        # Plan 10 steps ahead, will be x0 that is compared to the 10 steps of the expert trajectory
+        # NOTE: this policy function only works for batch if the condition is the same for each element in the batch.
+        # to change that, would need to add a flag that instead goes to a different update _format_conditions() method that simply takes the tensor of conditions,
+        #  instead of repeating the 1D one for each point in batch (which is what it currently does)
+        action, samples = policy(conditions, batch_size=1, verbose=args.verbose) 
+
+        target = expert_trajectories[i:i+1,:,:]
+        target=target.to(torch.float32) 
+
+        sample_actions=samples.actions[:,:step_size,:]
+        sample_observations=samples.observations[:,:step_size,:]
+
+        predictions=torch.cat((sample_actions,sample_observations),dim=-1) 
+
+        loss_value=loss(predictions,target)
+
+        loss_value.backward() # gradients will be accumulated across different datapoints, and then backprop once we have gone through entire data
+
+        curr_loss+=loss_value.detach().numpy()
+
+        #make_dot(loss_value).view()
+
+        # FIGURED GRAD FOR WEIGHTS BUT NOT FOR BIAS
+    #print(list(value_function.parameters())[0].grad)
+        #print(list(value_function.model.parameters())[1])
+        #print(list(value_function.model.parameters())[1].grad)
+
+    optimizer.step()
+
+    optimizer.zero_grad()
+    """
+    # BELOW IS FOR LOOPING THROUGH EACH BIG SEQUENCE AND UPDATING AFTER 10 STEPS
+
+    
     for exp_traj in range(numb_exp_trajectories):
         
         for step in range(expert_trajectories.shape[1]-step_size):
@@ -146,9 +196,8 @@ for e in range(epochs):
                 #prediction.register_hook(lambda grad: print(grad))
  
                 loss_value=loss(prediction,target)
-                #print(loss_value)
-                #value_function.model.parameters().register_hook(lambda grad: print(grad))
-                #value_function.model.parameters().register_hook(lambda grad: print(grad))
+                #loss_value=MMD(torch.flatten(target,start_dim=1),torch.flatten(prediction,start_dim=1),'rbf')
+                #loss_value=MMD(torch.flatten(target,end_dim=1),torch.flatten(prediction,end_dim=1),'rbf')
 
                 #traj.register_hook(lambda grad: print(grad)) 
                 
@@ -160,7 +209,6 @@ for e in range(epochs):
                 #        print(name)
                 #        param.register_hook(lambda grad: print(grad))
                                     
-                #not sure why this works. My guess is grads arent actually working properly!
                 loss_value.backward()
 
                 curr_loss+=loss_value.detach().numpy()
@@ -168,20 +216,29 @@ for e in range(epochs):
                 #make_dot(loss_value).view()
 
                 # FIGURED GRAD FOR WEIGHTS BUT NOT FOR BIAS
-                print(list(value_function.parameters())[0].grad)
+                #print(list(value_function.parameters())[0].grad)
                 #print(list(value_function.model.parameters())[1])
                 #print(list(value_function.model.parameters())[1].grad)
 
                 optimizer.step()
 
                 optimizer.zero_grad()
-
-    with torch.no_grad():
-        for name,param in value_function.model.named_parameters():
-            if name=='fc.weight':
-                print(name)
-                print(param.data)
+    
+    #with torch.no_grad():
+    #    for name,param in value_function.model.named_parameters():
+    #        if name=='fc.weight':
+    #            print(name)
+    #            print(param.data)
     loss_array.append(curr_loss)
+    if e%10==0 or e==epochs-1:
+        torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/state_{f}.pt'.format(f=e+1))
+        plt.figure()
+        plt.plot(range(len(loss_array)),loss_array)
+        plt.xlabel('Epoch Number',fontsize=12)
+        plt.ylabel('MMD Loss',fontsize=12)
+        print(loss_array)
+        plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function.pdf',format="pdf", bbox_inches="tight")
+        print(loss_array)
 
 
 #data = {
@@ -191,10 +248,15 @@ for e in range(epochs):
 #}
 
 # NOTE: SAVE WITHOUT .model. so that the parameters have name model.fc.weight instead of fc.weight, and thus match what load() function in training.py expects! 
-torch.save(value_function.state_dict(),'logs/maze2d-umaze-v1/values/trained_reward.pt')
+torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/state_{f}.pt'.format(f=epochs))
+
 
 plt.figure()
-plt.plot(loss_array)
+plt.plot(range(len(loss_array)),loss_array)
+plt.xlabel('Epoch Number',fontsize=12)
+plt.ylabel('MSE Loss',fontsize=12)
+print(loss_array)
+plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function.pdf',format="pdf", bbox_inches="tight")
 plt.show()
 
 
@@ -205,9 +267,7 @@ plt.show()
 #  print(len(param))
 #  print(param)
                 
-        
-
-
+    
 
     
 

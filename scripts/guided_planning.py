@@ -85,8 +85,10 @@ rollout = [observation.copy()] #1st observation I think
 total_reward = 0
 trajectories=[]
 
+max_steps=env.max_episode_steps
+#max_steps=128
 
-for t in range(env.max_episode_steps):
+for t in range(max_steps):
 
 
     ## save state for rendering only
@@ -131,7 +133,7 @@ for t in range(env.max_episode_steps):
 
     # logger.log(score=score, step=t)
     if t % args.vis_freq == 0 or terminal:
-        fullpath = join(args.savepath, f'{t}.png')
+        fullpath = join(args.savepath, f'{t}'+str(args.seed)+'.png')
 
         if t == 0: renderer.composite(fullpath, samples.observations.detach().numpy() , ncol=1)
 
@@ -139,7 +141,7 @@ for t in range(env.max_episode_steps):
         # renderer.render_plan(join(args.savepath, f'{t}_plan.mp4'), samples.actions, samples.observations, state)
 
         ## save rollout thus far
-        renderer.composite(join(args.savepath, 'rollout.png'), np.array(rollout)[None], ncol=1)
+        renderer.composite(join(args.savepath, 'rollout'+str(args.seed)+'.png'), np.array(rollout)[None], ncol=1)
 
         # renderer.render_rollout(join(args.savepath, f'rollout.mp4'), rollout, fps=80)
 
@@ -161,3 +163,32 @@ trajectories=[t.tolist() for t in trajectories]
 json_data = {'score': score, 'step': t, 'return': total_reward, 'term': terminal,
     'epoch_diffusion': diffusion_experiment.epoch,'rollout':trajectories}
 json.dump(json_data, open(json_path, 'w'), indent=2, sort_keys=True)
+
+
+# CODE TO PRINT REWARD FOR EACH COORDINATE IN MAZE
+
+for name,param in value_function.model.named_parameters():
+    if name=='fc.weight':
+        parameter=param.detach().numpy()
+                
+#print(parameter)
+x=np.linspace(1,4,num=30)
+y=np.linspace(1,4,num=30)
+xv,yv=np.meshgrid(x,y,indexing='ij')
+
+
+values=np.multiply(yv,5)+np.multiply(xv,5)
+
+#print(parameter[0,3+6*step])
+#print(parameter[0,2+6*step])
+#print(values[0,0])
+#print(values[-1,-1])
+#print(values[0,-1])
+#print(values[-1,0])
+values=np.pad(values,((10,10),(10,10)),mode='constant',constant_values=(np.nan,)) #for maze limits
+values[20:30,10:30]=np.nan #for maze limits!
+#print(values.shape)
+
+#print(values)
+renderer.composite_reward_function(join(args.savepath, 'values.png'), np.array(values)[None], ncol=1)
+
