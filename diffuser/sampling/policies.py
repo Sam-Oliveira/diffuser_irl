@@ -20,9 +20,11 @@ class GuidedPolicy:
         self.preprocess_fn = get_policy_preprocess_fn(preprocess_fns)
         self.sample_kwargs = sample_kwargs
 
-    def __call__(self, conditions, batch_size=1, verbose=True):
+    def __call__(self, conditions, batch_size=1, diff_conditions=False,verbose=True):
+
         conditions = {k: self.preprocess_fn(v) for k, v in conditions.items()}
-        conditions = self._format_conditions(conditions, batch_size)
+       # print(conditions)
+        conditions = self._format_conditions(conditions, batch_size,diff_conditions)
         #print(conditions)
         ## run reverse diffusion process (I think it calls ValueDiffusion in diffuser/models/diffusion.py, but doesnt rly make sense cause that expects a t argument
         # IT SEEMS THIS CALLS FIRST THE BASE DIFFUSION AND ONLY THEN THE VALUEDIFFUSION GETS CALLED SOMEHOW. theory simply based on printing messages, no idea what is actually happening
@@ -49,16 +51,19 @@ class GuidedPolicy:
         parameters = list(self.diffusion_model.parameters())
         return parameters[0].device
 
-    def _format_conditions(self, conditions, batch_size):
+    def _format_conditions(self, conditions, batch_size,diff_conditions=False):
         conditions = utils.apply_dict(
             self.normalizer.normalize,
             conditions,
             'observations',
         )
         conditions = utils.to_torch(conditions, dtype=torch.float32, device='cpu')
-        conditions = utils.apply_dict(
-            einops.repeat,
-            conditions,
-            'd -> repeat d', repeat=batch_size,
-        )
+        if diff_conditions:
+            return conditions
+        else:
+            conditions = utils.apply_dict(
+                einops.repeat,
+                conditions,
+                'd -> repeat d', repeat=batch_size,
+            )
         return conditions

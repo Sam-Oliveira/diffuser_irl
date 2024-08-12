@@ -172,6 +172,8 @@ for name,param in value_function.model.named_parameters():
         parameter=param.detach().numpy()
                 
 #print(parameter)
+
+# FOR UMAZE
 x=np.linspace(1,4,num=30)
 y=np.linspace(1,4,num=30)
 xv,yv=np.meshgrid(x,y,indexing='ij')

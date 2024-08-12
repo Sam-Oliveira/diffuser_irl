@@ -374,7 +374,7 @@ class GaussianDiffusion_for_guide(nn.Module):
         #x.register_hook(lambda grad: print(grad))
         x_recon = self.predict_start_from_noise(x, t=t, noise=self.model(x, cond, t))
         #x_recon.requires_grad_()
-        print('inside p_mean_var')
+        #print('inside p_mean_var')
         #x_recon.register_hook(lambda grad: print(grad))
         if self.clip_denoised:
             x_recon.clamp_(-1., 1.)
@@ -408,7 +408,8 @@ class GaussianDiffusion_for_guide(nn.Module):
 
         progress.stamp()
 
-        x, values = sort_by_values(x, values) # NO IDEA WHY WE DO THIS
+        # CANT SEE A REASON WE WOULD WANT THIS, AT LEAST FOR NOW
+        #x, values = sort_by_values(x, values) # NO IDEA WHY WE DO THIS (basically sorts each array in batch based on value) 
         if return_chain: chain = torch.stack(chain, dim=1)
 
         return Sample(x, values, chain)

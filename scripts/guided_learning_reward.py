@@ -99,13 +99,13 @@ for file in range(len(json_files)):
     expert_trajectories=torch.cat((expert_trajectories, file_torch.unsqueeze(0)))
 
 # Expert trajectories tensor is numb_trajectories x steps of rollout x state and action dim (=6)
-"""
+
 # Now basically make it so each datapoint isnt an entire trajectory, but each "step_size"-length section of a trajectory
 expert_trajectories=torch.flatten(expert_trajectories,start_dim=0,end_dim=1)
 expert_trajectories=torch.split(expert_trajectories,step_size,dim=0)
 expert_trajectories=torch.stack(expert_trajectories,dim=0)
-#train_dataloader = DataLoader(expert_trajectories, batch_size=1, shuffle=True)
-"""
+expert_trajectories=expert_trajectories.to(torch.float32)
+
 # Arguments
 
 print(expert_trajectories.shape[0])
@@ -126,7 +126,35 @@ for e in range(epochs):
     print("EPOCH "+str(e))
     curr_loss=0
 
-    # THIS IS IN CASE DATA WAS SPLIT AS ABOVE
+
+    # FIRST ONE IS FOR BATCH DATA, BUT TRYING TO USE DATALOADER. ALSO NOW I HAVE CODE FOR DIFF CONDITIONING POINTS, SO I TRY TO DO IT AS IN MMD.
+    # ALSO NOTE FOR THIS CASE, WE DO ONLY 1 UPDATE STEP ISNTREAD OF 1 EVERY DATAPOINT LIKE IN BOTH CASES BELOW. SO WILL PROB NEED LARGER LEARNING RATE
+
+    train_dataloader = DataLoader(expert_trajectories, batch_size=8, shuffle=False,num_workers=0)
+    for targets in train_dataloader:
+        observations=targets[:,0,2:]
+        conditions={0:observations}
+        action,samples=policy(conditions,batch_size=observations.shape[0],diff_conditions=True,verbose=args.verbose)
+
+        sample_actions=samples.actions[:,:step_size,:]
+        sample_observations=samples.observations[:,:step_size,:]
+
+        predictions=torch.cat((sample_actions,sample_observations),dim=-1) 
+
+        loss_value=loss(torch.flatten(predictions,start_dim=1),torch.flatten(targets,start_dim=1))
+
+        loss_value.backward() # gradients will be accumulated across different datapoints, and then backprop once we have gone through entire data
+
+        curr_loss+=loss_value.detach().numpy()
+
+        optimizer.step()
+
+        optimizer.zero_grad()
+
+
+
+
+    # THIS IS IN CASE DATA WAS SPLIT AS ABOVE, i.e. batch mode, but still 1 opt step per datapoint
     """
     for i in range(expert_trajectories.shape[0]):
         observation=expert_trajectories[i,0,2:]
@@ -135,7 +163,7 @@ for e in range(epochs):
 
         # Plan 10 steps ahead, will be x0 that is compared to the 10 steps of the expert trajectory
         # NOTE: this policy function only works for batch if the condition is the same for each element in the batch.
-        # to change that, would need to add a flag that instead goes to a different update _format_conditions() method that simply takes the tensor of conditions,
+        # to change that, would need to add a flag that instead goes to a different update to _format_conditions() method that simply takes the tensor of conditions,
         #  instead of repeating the 1D one for each point in batch (which is what it currently does)
         action, samples = policy(conditions, batch_size=1, verbose=args.verbose) 
 
@@ -160,13 +188,14 @@ for e in range(epochs):
         #print(list(value_function.model.parameters())[1])
         #print(list(value_function.model.parameters())[1].grad)
 
-    optimizer.step()
+        optimizer.step()
 
-    optimizer.zero_grad()
-    """
+        optimizer.zero_grad()
+
+        
+    
     # BELOW IS FOR LOOPING THROUGH EACH BIG SEQUENCE AND UPDATING AFTER 10 STEPS
 
-    
     for exp_traj in range(numb_exp_trajectories):
         
         for step in range(expert_trajectories.shape[1]-step_size):
@@ -223,7 +252,7 @@ for e in range(epochs):
                 optimizer.step()
 
                 optimizer.zero_grad()
-    
+    """
     #with torch.no_grad():
     #    for name,param in value_function.model.named_parameters():
     #        if name=='fc.weight':
@@ -232,13 +261,14 @@ for e in range(epochs):
     loss_array.append(curr_loss)
     if e%10==0 or e==epochs-1:
         torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/state_{f}.pt'.format(f=e+1))
-        plt.figure()
-        plt.plot(range(len(loss_array)),loss_array)
-        plt.xlabel('Epoch Number',fontsize=12)
-        plt.ylabel('MMD Loss',fontsize=12)
-        print(loss_array)
-        plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function.pdf',format="pdf", bbox_inches="tight")
-        print(loss_array)
+
+    plt.figure()
+    plt.plot(range(len(loss_array)),loss_array)
+    plt.xlabel('Epoch Number',fontsize=12)
+    plt.ylabel('MSE Loss',fontsize=12)
+    print(loss_array)
+    plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_mse.pdf',format="pdf", bbox_inches="tight")
+    plt.close()
 
 
 #data = {

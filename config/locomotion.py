@@ -17,21 +17,22 @@ base = {
     'diffusion': {
         ## model
         'model': 'models.TemporalUnet',
-        'diffusion': 'models.GaussianDiffusion',
+        'diffusion': 'models.GaussianDiffusion_for_guide',
         'horizon': 32,
-        'n_diffusion_steps': 100,
+        'n_diffusion_steps': 20,
         'action_weight': 10,
         'loss_weights': None,
         'loss_discount': 1,
         'predict_epsilon': False,
         'dim_mults': (1, 4, 8),
+        'attention': False,
         'renderer': 'utils.MuJoCoRenderer',
 
         ## dataset
         'loader': 'datasets.SequenceDataset',
-        'normalizer': 'LimitsNormalizer',
+        'normalizer': 'GaussianNormalizer',
         'preprocess_fns': [],
-        'clip_denoised': True,
+        'clip_denoised': False,
         'use_padding': True,
         'max_path_length': 1000,
 
@@ -57,14 +58,40 @@ base = {
         'bucket': None,
         'device': 'cuda',
     },
+    
 }
 
 #------------------------ overrides ------------------------#
 
 ## put environment-specific overrides here
 
-halfcheetah_medium_expert_v2 = {
-    'diffusion': {
-        'horizon': 16,
+hopper_medium_expert_v2 = {
+    'plan': {
+        'scale': 0.0001,
+        't_stopgrad': 4,
     },
 }
+
+
+halfcheetah_medium_replay_v2 = halfcheetah_medium_v2 = halfcheetah_medium_expert_v2 = halfcheetah_expert_v2= {
+    'diffusion': {
+        'horizon': 4,
+        'dim_mults': (1, 4, 8),
+        'attention': True,
+    },
+    'values': {
+        'horizon': 4,
+        'dim_mults': (1, 4, 8),
+    },
+    'plan': {
+        'horizon': 4,
+        'scale': 0.001,
+        't_stopgrad': 4,
+    },
+}
+
+#halfcheetah_medium_expert_v2 = {
+#    'diffusion': {
+#        'horizon': 16,
+#    },
+#}
