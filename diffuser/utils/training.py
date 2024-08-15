@@ -76,7 +76,7 @@ class Trainer(object):
             self.dataset, batch_size=train_batch_size, num_workers=0, shuffle=True, pin_memory=True
         ))
         self.dataloader_vis = cycle(torch.utils.data.DataLoader(
-            self.dataset, batch_size=1, num_workers=2, shuffle=True, pin_memory=True
+            self.dataset, batch_size=1, num_workers=0, shuffle=True, pin_memory=True
         ))
         self.renderer = renderer
         self.optimizer = torch.optim.Adam(diffusion_model.parameters(), lr=train_lr)
@@ -157,7 +157,7 @@ class Trainer(object):
             loads model and ema from disk
         '''
         loadpath = os.path.join(self.logdir, f'state_{epoch}.pt')
-        data = torch.load(loadpath)
+        data = torch.load(loadpath, map_location='cpu') #added the map_location part so i can load models trained on GPUs onto my CPU
         #print(data)
         self.step = data['step']
 
@@ -170,7 +170,7 @@ class Trainer(object):
             loads model and ema from disk
         '''
         loadpath = os.path.join(self.logdir, f'state_{epoch}.pt')
-        data = torch.load(loadpath)
+        data = torch.load(loadpath, map_location='cpu') #added the map_location part so i can load models trained on GPUs onto my CPU
         self.model.load_state_dict(data)
 
 

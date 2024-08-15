@@ -141,7 +141,8 @@ for e in range(epochs):
 
     predictions=torch.cat((sample_actions,sample_observations),dim=-1) 
 
-    loss_value=loss(torch.flatten(predictions,start_dim=1),torch.flatten(targets,start_dim=1))
+    #loss_value=loss(torch.flatten(predictions,start_dim=1),torch.flatten(targets,start_dim=1))
+    loss_value=loss(torch.flatten(predictions,start_dim=1),torch.flatten(targets,start_dim=1),kernel='matern')
 
     print('Backward pass')
     loss_value.backward() # gradients will be accumulated across different datapoints, and then backprop once we have gone through entire data
@@ -207,7 +208,7 @@ for e in range(epochs):
     plt.ylabel('MMD Loss',fontsize=12)
     print(loss_array)
     plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_mmd.pdf',format="pdf", bbox_inches="tight")
-    plt.close()
+    #plt.close()
 
 # NOTE: SAVE WITHOUT .model. so that the parameters have name model.fc.weight instead of fc.weight, and thus match what load() function in training.py expects! 
 torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/state_{f}.pt'.format(f=epochs))

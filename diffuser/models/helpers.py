@@ -8,6 +8,7 @@ from einops.layers.torch import Rearrange
 import pdb
 from sklearn.metrics import pairwise_distances
 from sklearn.decomposition import PCA
+import gpytorch
 
 import diffuser.utils as utils
 
@@ -224,6 +225,7 @@ def MMD(x, y, kernel):
 
     return torch.mean(XX + YY - 2. * XY)
 
+# From https://github.com/jindongwang/transferlearning/blob/master/code/distance/mmd_pytorch.py
 class MMD_loss(nn.Module):
     
     def __init__(self, kernel_mul = 2.0, kernel_num = 5):
@@ -248,15 +250,44 @@ class MMD_loss(nn.Module):
         kernel_val = [torch.exp(-L2_distance / bandwidth_temp) for bandwidth_temp in bandwidth_list]
         return sum(kernel_val)
 
-    def forward(self, source, target):
+    def matern_kernel(self, source, target,nu):
+        total = torch.cat([source, target], dim=0)
+        #print(total.shape)
+        covar_module=gpytorch.kernels.ScaleKernel(gpytorch.kernels.MaternKernel(nu=nu))
+        return covar_module(total).to_dense()
+
+    def forward(self, source, target,kernel='gaussian'):
         batch_size = int(source.size()[0])
-        kernels = self.guassian_kernel(source, target, kernel_mul=self.kernel_mul, kernel_num=self.kernel_num, fix_sigma=self.fix_sigma)
-        XX = torch.mean(kernels[:batch_size, :batch_size])
-        YY = torch.mean(kernels[batch_size:, batch_size:])
-        XY = torch.mean(kernels[:batch_size, batch_size:])
-        YX = torch.mean(kernels[batch_size:, :batch_size])
-        loss = torch.mean(XX + YY - XY -YX)
-        return loss
+        if kernel=='gaussian':
+            kernels = self.guassian_kernel(source, target, kernel_mul=self.kernel_mul, kernel_num=self.kernel_num, fix_sigma=self.fix_sigma)
+            XX = torch.mean(kernels[:batch_size, :batch_size])
+            YY = torch.mean(kernels[batch_size:, batch_size:])
+            XY = torch.mean(kernels[:batch_size, batch_size:])
+            YX = torch.mean(kernels[batch_size:, :batch_size])
+            loss = torch.mean(XX + YY - XY -YX)
+            return loss
+        elif kernel=='matern':
+            #kernels=self.matern_kernel(source,target,0.5)
+            #XX = kernels[:batch_size, :batch_size]
+            #YY = kernels[batch_size:, batch_size:]
+            #XY = kernels[:batch_size, batch_size:]
+            #YX = kernels[batch_size:, :batch_size]
+            #loss = torch.mean(XX + YY - XY -YX)
+            #return loss
+            K=self.matern_kernel(source,target,0.5)
+            N=source.shape[0]
+            M=target.shape[0]
+            Kxx = K[:N,:N]
+            Kyy = K[N:,N:]
+            Kxy = K[:N,N:]
+            t1 = (1./(M*(M-1)))*torch.sum(Kxx - torch.diag(torch.diagonal(Kxx)))
+            t2 = (2./(M*N)) * torch.sum(Kxy)
+            t3 = (1./(N*(N-1)))* torch.sum(Kyy - torch.diag(torch.diagonal(Kyy)))
+            #print(t1)
+            #print(t2)
+            #print(t3)
+            MMDsquared = (t1-t2+t3)
+            return MMDsquared
     
 
 def K_ID(X,Y,gamma=1):

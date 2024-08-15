@@ -151,7 +151,8 @@ class ValueFunction(nn.Module):
         #self.hidden_size = hidden_size
         #self.output_size = output_size
         #self.sin=SinusoidalPosEmb(dim),
-        self.fc = nn.Linear(128*6,1,bias=False)
+        self.fc = nn.Linear(128*6,1,bias=False) #dimensions for umaze
+        #self.fc = nn.Linear(384*6,1,bias=False) #dimensions for large maze
         
         
     def forward(self, x, cond, time, *args):

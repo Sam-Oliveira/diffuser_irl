@@ -87,6 +87,7 @@ trajectories=[]
 
 max_steps=env.max_episode_steps
 #max_steps=128
+max_steps=200 #only for large maze. if not, it.s env.max steps which is 300
 
 for t in range(max_steps):
 
@@ -172,6 +173,10 @@ for name,param in value_function.model.named_parameters():
         parameter=param.detach().numpy()
                 
 #print(parameter)
+
+# FOR LARGE MAZE
+
+
 
 # FOR UMAZE
 x=np.linspace(1,4,num=30)
