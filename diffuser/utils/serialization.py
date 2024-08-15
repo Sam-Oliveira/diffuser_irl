@@ -38,7 +38,7 @@ def load_config(*loadpath):
 #    return model_config
 
 
-def load_diffusion(*loadpath, epoch='latest', device='cpu', seed=None):
+def load_diffusion(*loadpath, epoch='latest', device='cuda:0', seed=None):
     dataset_config = load_config(*loadpath, 'dataset_config.pkl')
     render_config = load_config(*loadpath, 'render_config.pkl')
     model_config = load_config(*loadpath, 'model_config.pkl')
@@ -64,7 +64,7 @@ def load_diffusion(*loadpath, epoch='latest', device='cpu', seed=None):
 
     return DiffusionExperiment(dataset, renderer, model, diffusion, trainer.ema_model, trainer, epoch)
 
-def load_diffusion_learnt_reward(*loadpath, epoch='latest', device='cpu', seed=None): #function to load the reward model when we have just learnt it (guided_learnt_reward.py)
+def load_diffusion_learnt_reward(*loadpath, epoch='latest', device='cuda:0', seed=None): #function to load the reward model when we have just learnt it (guided_learnt_reward.py)
     dataset_config = load_config(*loadpath, 'dataset_config.pkl')
     render_config = load_config(*loadpath, 'render_config.pkl')
     model_config = load_config(*loadpath, 'model_config.pkl')

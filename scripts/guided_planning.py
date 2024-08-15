@@ -87,7 +87,7 @@ trajectories=[]
 
 max_steps=env.max_episode_steps
 #max_steps=128
-
+max_steps=200
 for t in range(max_steps):
 
 
@@ -107,17 +107,17 @@ for t in range(max_steps):
 
     #print(type(action))
     #print(type(observation))
-    trajectories.append(np.concatenate((action.detach().numpy(),observation)))
+    trajectories.append(np.concatenate((action.detach().cpu().numpy(),observation)))
 
     ## execute action in environment
-    next_observation, reward, terminal, _ = env.step(action.detach().numpy())
+    next_observation, reward, terminal, _ = env.step(action.detach().cpu().numpy())
 
     ## print reward and score
     total_reward += reward
     score = env.get_normalized_score(total_reward)
     print(
         f't: {t} | r: {reward:.2f} |  R: {total_reward:.2f} | score: {score:.4f} | '
-        f'{action.detach().numpy()}'
+        f'{action.detach().cpu().numpy()}'
     )
 
     # just for printing
@@ -135,7 +135,7 @@ for t in range(max_steps):
     if t % args.vis_freq == 0 or terminal:
         fullpath = join(args.savepath, f'{t}'+str(args.seed)+'.png')
 
-        if t == 0: renderer.composite(fullpath, samples.observations.detach().numpy() , ncol=1)
+        if t == 0: renderer.composite(fullpath, samples.observations.detach().cpu() , ncol=1)
 
 
         # renderer.render_plan(join(args.savepath, f'{t}_plan.mp4'), samples.actions, samples.observations, state)
@@ -169,7 +169,7 @@ json.dump(json_data, open(json_path, 'w'), indent=2, sort_keys=True)
 
 for name,param in value_function.model.named_parameters():
     if name=='fc.weight':
-        parameter=param.detach().numpy()
+        parameter=param.detach().cpu().numpy()
                 
 #print(parameter)
 x=np.linspace(1,4,num=30)

@@ -3,7 +3,7 @@ import torch
 from torch import nn
 import pdb
 from collections import namedtuple
-from torchsummary import summary
+#from torchsummary import summary
 
 import diffuser.utils as utils
 from .helpers import (
@@ -374,7 +374,6 @@ class GaussianDiffusion_for_guide(nn.Module):
         #x.register_hook(lambda grad: print(grad))
         x_recon = self.predict_start_from_noise(x, t=t, noise=self.model(x, cond, t))
         #x_recon.requires_grad_()
-        print('inside p_mean_var')
         #x_recon.register_hook(lambda grad: print(grad))
         if self.clip_denoised:
             x_recon.clamp_(-1., 1.)
@@ -397,6 +396,8 @@ class GaussianDiffusion_for_guide(nn.Module):
         chain = [x] if return_chain else None
 
         progress = utils.Progress(self.n_timesteps) if verbose else utils.Silent()
+        #print('Printing x')
+        #progress.update({'Device of x:':x.device})
         for i in reversed(range(0, self.n_timesteps)):
             t = make_timesteps(batch_size, i, device)
             x, values = sample_fn(self, x, cond, t, **sample_kwargs)
@@ -405,10 +406,10 @@ class GaussianDiffusion_for_guide(nn.Module):
 
             progress.update({'t': i, 'vmin': values.min().item(), 'vmax': values.max().item()})
             if return_chain: chain.append(x)
-
         progress.stamp()
 
-        x, values = sort_by_values(x, values) # NO IDEA WHY WE DO THIS
+        # We don't need this, at least for now!
+        #x, values = sort_by_values(x, values) # NO IDEA WHY WE DO THIS
         if return_chain: chain = torch.stack(chain, dim=1)
 
         return Sample(x, values, chain)
@@ -433,6 +434,8 @@ class GaussianDiffusion_for_guide(nn.Module):
         if noise is None:
             noise = torch.randn_like(x_start,requires_grad=True)
 
+        #print(x_start.device)
+        #print(self.sqrt_alphas_cumprod.device)
         sample = (
             extract(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start +
             extract(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * noise

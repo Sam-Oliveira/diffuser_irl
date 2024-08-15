@@ -4,7 +4,7 @@ import torch
 import pdb
 
 DTYPE = torch.float
-DEVICE = 'cpu'
+DEVICE = 'cuda:0'
 
 #-----------------------------------------------------------------------------#
 #------------------------------ numpy <--> torch -----------------------------#
@@ -21,13 +21,13 @@ def to_torch(x, dtype=None, device=None):
 	if type(x) is dict:
 		return {k: to_torch(v, dtype, device) for k, v in x.items()}
 	elif torch.is_tensor(x):
-		return x.type(dtype) #changed this
+		return x.to(device).type(dtype) #changed this initially to remove to(devoce) in local, but need it for cluster
 		# import pdb; pdb.set_trace()
 	return torch.tensor(x, dtype=dtype, device=device)
 
 def to_device(x, device=DEVICE):
 	if torch.is_tensor(x):
-		return x #changed this
+		return x.to(device) #changed this initially to remove to(devoce) in local, but need it for cluster
 	elif type(x) is dict:
 		return {k: to_device(v, device) for k, v in x.items()}
 	else:
@@ -78,22 +78,19 @@ def normalize(x):
 	return x
 
 def to_img(x):
-    normalized = normalize(x)
-    array = to_np(normalized)
-    array = np.transpose(array, (1,2,0))
-    return (array * 255).astype(np.uint8)
+	normalized = normalize(x)
+	array = to_np(normalized)
+	array = np.transpose(array, (1,2,0))
+	return (array * 255).astype(np.uint8)
 
 def set_device(device):
 	DEVICE = device
 	if 'cuda' in device:
 		torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
-def batch_to_device(batch, device='cpu'):
-    vals = [
-        to_device(getattr(batch, field), device)
-        for field in batch._fields
-    ]
-    return type(batch)(*vals)
+def batch_to_device(batch, device='cuda:0'):
+	vals=[to_device(getattr(batch, field), device) for field in batch._fields]
+	return type(batch)(*vals)
 
 def _to_str(num):
 	if num >= 1e6:

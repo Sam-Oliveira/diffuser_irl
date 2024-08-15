@@ -4,6 +4,7 @@ import pdb
 import torch
 
 POINTMASS_KEYS = ['observations', 'actions', 'next_observations', 'deltas']
+DEVICE = 'cuda'
 
 #-----------------------------------------------------------------------------#
 #--------------------------- multi-field normalizer --------------------------#
@@ -174,8 +175,10 @@ class LimitsNormalizer(Normalizer):
 
         ## [ -1, 1 ] --> [ 0, 1 ]
         x = (x + 1) / 2.
-
-        return x * (torch.from_numpy(self.maxs) - torch.from_numpy(self.mins)) + torch.from_numpy(self.mins)
+        min=torch.from_numpy(self.mins).to(DEVICE)
+        max=torch.from_numpy(self.maxs).to(DEVICE)
+        return x * (max - min) + min
+        #return x * (torch.from_numpy(self.maxs) - torch.from_numpy(self.mins)) + torch.from_numpy(self.mins) (previously. But now doesnt work in cluster for unguided planning)
 
 class SafeLimitsNormalizer(LimitsNormalizer):
     '''

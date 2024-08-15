@@ -15,8 +15,8 @@ from torch.utils.data import DataLoader
 from diffuser.models.helpers import MMD
 
 class Parser(utils.Parser):
-    dataset: str = 'maze2d-umaze-v1'
-    config: str = 'config.maze2d'
+    dataset: str = 'halfcheetah-medium-expert-v2'
+    config: str = 'config.locomotion'
 
 #---------------------------------- setup ----------------------------------#
 
@@ -79,8 +79,8 @@ env=dataset.env
 observation = env.reset()
 
 #if args.conditional:
-print('Resetting target')
-env.set_target()
+#print('Resetting target')
+#env.set_target()
 
 
 # Load expert trajectories
@@ -128,35 +128,7 @@ for e in range(epochs):
     print("EPOCH "+str(e))
     curr_loss=0
 
-     # FIRST ONE IS FOR BATCH DATA, BUT TRYING TO USE DATALOADER. ALSO NOW I HAVE CODE FOR DIFF CONDITIONING POINTS, SO I TRY TO DO IT AS IN MMD.
-    # ALSO NOTE FOR THIS CASE, WE DO ONLY 1 UPDATE STEP ISNTREAD OF 1 EVERY DATAPOINT LIKE IN BOTH CASES BELOW. SO WILL PROB NEED LARGER LEARNING RATE
-
-    train_dataloader = DataLoader(expert_trajectories, batch_size=8, shuffle=False,num_workers=0)
-    for targets in train_dataloader:
-        observations=targets[:,0,2:]
-        conditions={0:observations}
-        action,samples=policy(conditions,batch_size=observations.shape[0],diff_conditions=True,verbose=args.verbose)
-
-        sample_actions=samples.actions[:,:step_size,:]
-        sample_observations=samples.observations[:,:step_size,:]
-
-        predictions=torch.cat((sample_actions,sample_observations),dim=-1) 
-
-        loss_value=loss(torch.flatten(predictions,start_dim=1),torch.flatten(targets,start_dim=1))
-
-        loss_value.backward() # gradients will be accumulated across different datapoints, and then backprop once we have gone through entire data
-
-        curr_loss+=loss_value.detach().numpy()
-
-        optimizer.step()
-
-        optimizer.zero_grad()
-
-
-
-
-    # THIS IS IN CASE DATA WAS SPLIT AS ABOVE, i.e. batch mode, but still 1 opt step per datapoint
-
+    # THIS IS IN CASE DATA WAS SPLIT AS ABOVE
     """
     for i in range(expert_trajectories.shape[0]):
         observation=expert_trajectories[i,0,2:]

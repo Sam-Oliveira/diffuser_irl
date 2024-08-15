@@ -73,7 +73,8 @@ for t in range(env.max_episode_steps):
         # pdb.set_trace()
 
     ## can use actions or define a simple controller based on state predictions (i.e. on "sequence" var that is the predictions done at t=0)
-    action = next_waypoint[:2] - state[:2] + (next_waypoint[2:] - state[2:])
+    # had to add .cpu() to run in cluster because next_waypoint is cuda tensor and state is np array
+    action = next_waypoint[:2].cpu() - state[:2] + (next_waypoint[2:].cpu() - state[2:])
     # pdb.set_trace()
     ####
 
@@ -110,7 +111,7 @@ for t in range(env.max_episode_steps):
     if t % args.vis_freq == 0 or terminal:
         fullpath = join(args.savepath, f'{t}.png')
 
-        if t == 0: renderer.composite(fullpath, samples.observations.detach(), ncol=1)
+        if t == 0: renderer.composite(fullpath, samples.observations.detach().cpu(), ncol=1)
 
 
         # renderer.render_plan(join(args.savepath, f'{t}_plan.mp4'), samples.actions, samples.observations, state)

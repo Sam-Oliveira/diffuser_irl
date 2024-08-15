@@ -67,7 +67,7 @@ base = {
         'preprocess_fns': ['maze2d_set_terminals'],
         'clip_denoised': True,
         'use_padding': False,
-        'max_path_length': 4000, #changed this, as giovanni said he had changed it
+        'max_path_length': 40000, #changed this, as giovanni said he had changed it. CHANGED TO 4K FOR UMAZE, CHANGED BACK TO 40K FOR LARGE!!!
 
         ## serialization
         'logbase': 'logs',
@@ -75,7 +75,7 @@ base = {
         'exp_name': watch(diffusion_args_to_watch),
 
         ## training
-        'n_steps_per_epoch': 1000,
+        'n_steps_per_epoch': 10000,
         'loss_type': 'l2',
         'n_train_steps': 2e6,
         'batch_size': 32,
@@ -89,12 +89,12 @@ base = {
         'n_reference': 50,
         'n_samples': 10,
         'bucket': None,
-        'device': 'cpu',
+        'device': 'cuda',
     },
 
     'plan': {
         'batch_size': 10,
-        'device': 'cpu',
+        'device': 'cuda',
         'seed':13, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
         'env_seed':13, #seed for env
 
@@ -134,7 +134,7 @@ base = {
         'preprocess_fns': ['maze2d_set_terminals'],
         'clip_denoised': True,
         'use_padding': False,
-        'max_path_length': 4000, #changed this, as giovanni said he had changed it
+        'max_path_length': 40000, #changed this, as giovanni said he had changed it
 
         ## serialization
         'discount':0.995,
@@ -161,7 +161,7 @@ base = {
         'n_reference': 50,
         'n_samples': 10,
         'bucket': None,
-        'device': 'cpu',
+        'device': 'cuda',
     },
 
     'guided_plan': {
@@ -170,7 +170,7 @@ base = {
         'max_episode_length': 1000,
         'batch_size': 1,
         'preprocess_fns': [], #think i might need the maze2d function from above. check what is does
-        'device': 'cpu',
+        'device': 'cuda',
 
         ## sample_kwargs (Idk what these do)
         'n_guide_steps': 2, #the amount of steps actually taken in the environment based on each plan? just about how many steps of opt process we take in direction of guide gradient I think
@@ -214,13 +214,13 @@ base = {
         'max_episode_length': 1000,
         'batch_size': 1,
         'dim_mults': (1, 4, 8),
-        'device': 'cpu',
+        'device': 'cuda',
 
         'termination_penalty': None,
         'preprocess_fns': [], #I think separates dataset into the different episodes based on timeouts
         'clip_denoised': True,
         'use_padding': False,
-        'max_path_length': 4000, #changed this, as giovanni said he had changed it
+        'max_path_length': 40000, #changed this, as giovanni said he had changed it
 
         ## sample_kwargs (Idk what these do)
         'n_guide_steps': 2, #the amount of steps actually taken in the environment based on each plan? just about how many steps of opt process we take in direction of guide gradient I think
@@ -264,7 +264,7 @@ base = {
         'max_episode_length': 1000,
         'batch_size': 1,
         'preprocess_fns': [], #think i might need the maze2d function from above. check what is does
-        'device': 'cpu',
+        'device': 'cuda',
 
         ## sample_kwargs (Idk what these do)
         'n_guide_steps': 2, #the amount of steps actually taken in the environment based on each plan? just about how many steps of opt process we take in direction of guide gradient I think
@@ -301,6 +301,55 @@ base = {
 
         'verbose': True,
     },
+    'guided_learning_mmd': {
+        'guide': 'sampling.ValueGuide',
+        'policy': 'sampling.GuidedPolicy',
+        'max_episode_length': 1000,
+        'batch_size': 1,
+        'dim_mults': (1, 4, 8),
+        'device': 'cuda',
+
+        'termination_penalty': None,
+        'preprocess_fns': [], #I think separates dataset into the different episodes based on timeouts
+        'clip_denoised': True,
+        'use_padding': False,
+        'max_path_length': 40000, #changed this, as giovanni said he had changed it
+
+        ## sample_kwargs (Idk what these do)
+        'n_guide_steps': 2, #the amount of steps actually taken in the environment based on each plan? just about how many steps of opt process we take in direction of guide gradient I think
+        'scale': 0.1,
+        't_stopgrad': 2, #no idea what this is supposed to do mathematically
+        'stop_grad':False,
+        'scale_grad_by_std': True,
+        'conditional': False,
+        'seed': 40, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
+        'env_seed':13, #seed for environment
+
+        ## serialization
+        'loadbase': None,
+        'vis_freq': 10, # i think it's how often it renders
+        'logbase': 'logs',
+        'prefix': 'plans/guided',
+        'exp_name': watch(learn_reward_args_to_watch),
+        'suffix': '0',
+
+        ## value function
+        'discount': 0.995,
+
+        ## diffusion model
+        'horizon': 256,
+        'n_diffusion_steps': 256,
+        'normalizer': 'LimitsNormalizer',
+
+        ## loading
+        'diffusion_loadpath': 'f:diffusion/H{horizon}_T{n_diffusion_steps}',
+        'value_loadpath': 'f:values/H{horizon}_T{n_diffusion_steps}_d{discount}',
+
+        'diffusion_epoch': 'latest',
+        'value_epoch': 'latest',
+
+        'verbose': True,
+    },
 
 }
 
@@ -317,6 +366,7 @@ maze2d_umaze_v1 = {
     'diffusion': {
         'horizon': 128,
         'n_diffusion_steps': 64,
+        'max_path_length': 4000,
     },
     'plan': {
         'horizon': 128,
@@ -325,6 +375,7 @@ maze2d_umaze_v1 = {
     'init_values': {
         'horizon': 128,
         'n_diffusion_steps': 64,
+        'max_path_length': 4000,
     },
     'guided_plan': {
         'horizon': 128,
@@ -333,10 +384,16 @@ maze2d_umaze_v1 = {
     'guided_learning': {
         'horizon': 128,
         'n_diffusion_steps': 64,
+        'max_path_length': 4000,
     },
     'guided_learnt_reward': {
         'horizon': 128,
         'n_diffusion_steps': 64,
+    },
+    'guided_learning_mmd': {
+        'horizon': 128,
+        'n_diffusion_steps': 64,
+        'max_path_length': 4000,
     },
 }
 
@@ -346,6 +403,26 @@ maze2d_large_v1 = {
         'n_diffusion_steps': 256,
     },
     'plan': {
+        'horizon': 384,
+        'n_diffusion_steps': 256,
+    },
+    'init_values': {
+        'horizon': 384,
+        'n_diffusion_steps': 256,
+    },
+    'guided_plan': {
+        'horizon': 384,
+        'n_diffusion_steps': 256,
+    },
+    'guided_learning': {
+        'horizon': 384,
+        'n_diffusion_steps': 256,
+    },
+    'guided_learnt_reward': {
+        'horizon': 384,
+        'n_diffusion_steps': 256,
+    },
+    'guided_learning_mmd': {
         'horizon': 384,
         'n_diffusion_steps': 256,
     },

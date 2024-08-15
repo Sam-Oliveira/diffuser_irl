@@ -73,10 +73,10 @@ class Trainer(object):
         self.dataset = dataset
         # ONLY NEED TO CHANGE NUM_WORKS=0 FOR DIFFUSION MODEL TRAINING!
         self.dataloader = cycle(torch.utils.data.DataLoader(
-            self.dataset, batch_size=train_batch_size, num_workers=2, shuffle=True, pin_memory=True
+            self.dataset, batch_size=train_batch_size, num_workers=1, shuffle=True, pin_memory=True
         ))
         self.dataloader_vis = cycle(torch.utils.data.DataLoader(
-            self.dataset, batch_size=1, num_workers=2, shuffle=True, pin_memory=True
+            self.dataset, batch_size=1, num_workers=1, shuffle=True, pin_memory=True
         ))
         self.renderer = renderer
         self.optimizer = torch.optim.Adam(diffusion_model.parameters(), lr=train_lr)
@@ -218,7 +218,7 @@ class Trainer(object):
 
             ## get a single datapoint
             batch = self.dataloader_vis.__next__()
-            conditions = to_device(batch.conditions, 'cpu')
+            conditions = to_device(batch.conditions, 'cuda:0')
 
             ## repeat each item in conditions `n_samples` times
             conditions = apply_dict(
@@ -231,13 +231,13 @@ class Trainer(object):
             #samples = self.ema_model.conditional_sample(conditions)
             #samples = to_np(samples)
             samples=self.ema_model(conditions)
-            samples=samples.trajectories.detach()
+            samples=samples.trajectories.detach().cpu()
 
             ## [ n_samples x horizon x observation_dim ]
             normed_observations = samples[:, :, self.dataset.action_dim:]
 
             # [ 1 x 1 x observation_dim ]
-            normed_conditions = batch.conditions[0][:,None]
+            normed_conditions = batch.conditions[0][:,None].detach().cpu()
 
             # from diffusion.datasets.preprocessing import blocks_cumsum_quat
             # observations = conditions + blocks_cumsum_quat(deltas)

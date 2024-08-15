@@ -151,7 +151,9 @@ class ValueFunction(nn.Module):
         #self.hidden_size = hidden_size
         #self.output_size = output_size
         #self.sin=SinusoidalPosEmb(dim),
-        self.fc = nn.Linear(128*6,1,bias=False)
+        
+        self.fc = nn.Linear(128*6,1,bias=False) #dimensions for umaze
+        #self.fc = nn.Linear(384*6,1,bias=False) #dimensions for large maze
         
         
     def forward(self, x, cond, time, *args):
@@ -176,8 +178,69 @@ class ValueFunction(nn.Module):
 
         # So first two coordinates are actions. Then 3rd and 4th are coordinates, but I think y coordinate comes before x. I think this migth  be the opposite for velocity, but not sure.
         # Also note when printed, I think y gets printed before x! and they start on top left corner.
-        x=x[:,2:4,:]
-        x=torch.sum(x,dim=1)
+        #x=x[:,2:4,:]
+        #x=torch.sum(x,dim=1)
+        #x=torch.sum(x,dim=1,keepdim=True)
+        #return 5*x
+    
+        # DIFF NON-NN FUNCTION
+        #x=x[:,2:4,:]
+        #new_x= x[:,0,:] - x[:,1,:]
+        #new_x=torch.sum(new_x,dim=1,keepdim=True)
+        #return 5*new_x
+
+        # THIRD NON-NN FUNCTION
+        #x=x[:,2:4,:]
+        #new_x= x[:,1,:]
+        #new_x=torch.sum(new_x,dim=1,keepdim=True)
+        #return 5*new_x
+    
+
+class ValueFunction_Mujoco(nn.Module):
+    def __init__(
+        self,
+        horizon,
+        transition_dim,
+        cond_dim,
+        dim=32, 
+        dim_mults=(1, 2, 4, 8),
+        out_dim=1,
+    ):
+        super().__init__()
+
+        #self.input_size = input_size
+        #self.hidden_size = hidden_size
+        #self.output_size = output_size
+        #self.sin=SinusoidalPosEmb(dim),
+        
+        #self.fc = nn.Linear(128*6,1,bias=False) #dimensions for umaze
+        self.fc = nn.Linear(4*23,1,bias=False) #dimensions for half cheetah
+        
+        
+    def forward(self, x, cond, time, *args):
+        '''
+            x : [ batch x horizon x transition ]
+        '''
+
+        x = einops.rearrange(x, 'b h t -> b t h')
+
+        ## mask out first conditioning timestep, since this is not sampled by the model
+        #x[:, :, 0] = 0
+        #x = self.sin(x)
+
+        # NN to learn reward of function below
+
+        #x=torch.flatten(x,start_dim=1) #changed this and the return a bit on 13th July
+        #x = self.fc(x)
+
+        #return x
+
+        # NON-NN FUNCTION
+
+        # So first two coordinates are actions. Then 3rd and 4th are coordinates, but I think y coordinate comes before x. I think this migth  be the opposite for velocity, but not sure.
+        # Also note when printed, I think y gets printed before x! and they start on top left corner.
+        x=x[:,14,:] # x coordinate of front tip
+        #x=torch.sum(x,dim=1)
         x=torch.sum(x,dim=1,keepdim=True)
         return 5*x
     
@@ -188,21 +251,12 @@ class ValueFunction(nn.Module):
         #return 5*new_x
 
         # THIRD NON-NN FUNCTION
-        x=x[:,2:4,:]
-        new_x= x[:,1,:]
-        new_x=torch.sum(new_x,dim=1,keepdim=True)
-        return 5*new_x
+        #x=x[:,2:4,:]
+        #new_x= x[:,1,:]
+        #new_x=torch.sum(new_x,dim=1,keepdim=True)
+        #return 5*new_x
     
 
-        #return x.reshape((1,x.shape[0]))
-
-        x=torch.flatten(x,start_dim=1)
-        x = F.relu(self.i2h(x))
-        x = F.relu(self.h2h(x))
-        x = F.relu(self.h2o(x))
-        print(x.shape)
-        return x
-    
 
 """ this class is used by them for guide in main branch. however, i think see class below for guide for maze2d! (they dont actually do it, but they include this code in maze2d branch?)
 class ValueFunction(nn.Module):
