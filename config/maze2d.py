@@ -120,11 +120,10 @@ base = {
     },
 
     'init_values': {
-        'model': 'models.ValueFunction',
+        'model': 'models.ValueFunction_4Layer_UMaze',
         'diffusion': 'models.ValueDiffusion',
         'horizon': 128,
         'n_diffusion_steps': 64,
-        'dim_mults': (1, 4, 8),
         'renderer': 'utils.MuJoCoRenderer',
 
         ## dataset
@@ -213,7 +212,6 @@ base = {
         'policy': 'sampling.GuidedPolicy',
         'max_episode_length': 1000,
         'batch_size': 1,
-        'dim_mults': (1, 4, 8),
         'device': 'cuda',
 
         'termination_penalty': None,
@@ -306,7 +304,6 @@ base = {
         'policy': 'sampling.GuidedPolicy',
         'max_episode_length': 1000,
         'batch_size': 1,
-        'dim_mults': (1, 4, 8),
         'device': 'cuda',
 
         'termination_penalty': None,

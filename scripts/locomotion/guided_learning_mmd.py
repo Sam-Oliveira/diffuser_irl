@@ -12,15 +12,17 @@ import diffuser.datasets as datasets
 import diffuser.utils as utils
 import diffuser.sampling as sampling
 from torch.utils.data import DataLoader
+from diffuser.models.helpers import MMD
+from torch.utils.data import SubsetRandomSampler
 from diffuser.models.helpers import MMD,MMD_loss
 
 class Parser(utils.Parser):
-    dataset: str = 'maze2d-umaze-v1'
-    config: str = 'config.maze2d'
+    dataset: str = 'halfcheetah-expert-v2'
+    config: str = 'config.locomotion'
 
 #---------------------------------- setup ----------------------------------#
 
-args = Parser().parse_args('guided_learning_mmd')
+args = Parser().parse_args('guided_learning')
 
 # logger = utils.Logger(args)
 
@@ -28,7 +30,7 @@ args = Parser().parse_args('guided_learning_mmd')
 
 #---------------------------------- loading ----------------------------------#
 
-diffusion_experiment = utils.load_diffusion(args.logbase, args.dataset, args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
+diffusion_experiment = utils.load_diffusion(args.logbase, 'halfcheetah-medium-replay-v2', args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
 
 value_experiment = utils.load_diffusion( # changed this function, instead of just being load_diffusion()
     args.loadbase, args.dataset, args.value_loadpath,
@@ -67,7 +69,6 @@ policy_config = utils.Config(
     n_guide_steps=args.n_guide_steps,
     t_stopgrad=args.t_stopgrad,
     scale_grad_by_std=args.scale_grad_by_std,
-    stop_grad=args.stop_grad,
     verbose=False,
 )
 
@@ -79,115 +80,70 @@ env=dataset.env
 observation = env.reset()
 
 #if args.conditional:
-print('Resetting target')
-env.set_target()
+#print('Resetting target')
+#env.set_target()
 
 
 # Load expert trajectories
-step_size=10
-#DEPENDING ON ENVIRONMENT
-start_points=[13,14,15]
-rollouts_per_start_point=3
 
-#DEPENDING ON ENVIRONMENT
-expert_trajectories=torch.empty((0,300,dataset.observation_dim+dataset.action_dim),device=args.device) # 200 for large maze, 300 for umaze
-for start in start_points:  
 
-    #DEPENDING ON ENVIRONMENT
-    path_to_json = 'logs/maze2d-umaze-v1/plans/guided_H128_T64_d0.995_LimitsNormalizer_b1_stop-gradFalse_condFalse_env_seed{seed}/0/'.format(seed=start)
-    #path_to_json='logs/maze2d-large-v1/plans/guided_H384_T256_d0.995_LimitsNormalizer_b1_stop-gradFalse_condFalse_env_seed{seed}/0/'.format(seed=start)
-    json_files = [pos_json for pos_json in os.listdir(path_to_json) if pos_json.startswith('rollout') and pos_json.endswith('.json')]
-    for file in range(len(json_files)):
-        with open(path_to_json+json_files[file]) as json_data:
-            data = json.load(json_data)
-        data_array=np.array(data['rollout'])
-        file_torch=torch.from_numpy(data_array).to(device=args.device)
-        expert_trajectories=torch.cat((expert_trajectories, file_torch.unsqueeze(0)))
-# Expert trajectories tensor is numb_trajectories x steps of rollout x state and action dim (=6)
 
-# Now basically make it so each datapoint isnt an entire trajectory, but each "step_size"-length section of a trajectory
-expert_trajectories=torch.flatten(expert_trajectories,start_dim=0,end_dim=1)
-expert_trajectories=torch.split(expert_trajectories,step_size,dim=0)
-expert_trajectories=torch.stack(expert_trajectories,dim=0)
-expert_trajectories=expert_trajectories.to(torch.float32)
-#train_dataloader = DataLoader(expert_trajectories, batch_size=1, shuffle=True)
+# dataset has 996000 4-step parts of trajectories. here we just select 10k first ones
+subset_indices=[i for i in range(10000)]
+train_dataloader=DataLoader(dataset, batch_size=256, shuffle=False,num_workers=0,sampler=SubsetRandomSampler(subset_indices))
+#print(len(train_dataloader))
 
+#expert_trajectories=expert_trajectories.to(torch.float32)
 # Arguments
 
-print(expert_trajectories.shape[0])
+#print(expert_trajectories.shape[0])
 epochs=500
-n_samples_per_epoch=expert_trajectories.shape[0]
-numb_exp_trajectories=len(expert_trajectories)
+#n_samples_per_epoch=expert_trajectories.shape[0]
+#numb_exp_trajectories=len(expert_trajectories)
 
 
         
-#loss = torch.nn.MSELoss()
+loss = MMD_loss()
 
-#DEPENDING ON ENVIRONMENT
 optimizer = torch.optim.Adam(value_function.model.parameters(), lr=2e-3)
 
 
-#loss = torch.nn.MSELoss()
-loss_array=[]
-loss=MMD_loss()
-#loss = torch.nn.MSELoss()
 
+loss_array=[]
 for e in range(epochs):
     print("EPOCH "+str(e))
     curr_loss=0
     terms=0
-    # FIRST ONE IS FOR MINI BATCH DATA, BUT TRYING TO USE DATALOADER.
+   # FIRST ONE IS FOR BATCH DATA, BUT TRYING TO USE DATALOADER. ALSO NOW I HAVE CODE FOR DIFF CONDITIONING POINTS, SO I TRY TO DO IT AS IN MMD.
+    # ALSO NOTE FOR THIS CASE, WE DO ONLY 1 UPDATE STEP ISNTREAD OF 1 EVERY DATAPOINT LIKE IN BOTH CASES BELOW. SO WILL PROB NEED LARGER LEARNING RATE
 
-    train_dataloader = DataLoader(expert_trajectories, batch_size=expert_trajectories.shape[0], shuffle=False,num_workers=0)
     for targets in train_dataloader:
-        observations=targets[:,0,2:].detach().cpu()
+
+        #print(targets)
+        observations=targets.conditions[0].detach().cpu()
         conditions={0:observations}
         action,samples=policy(conditions,batch_size=observations.shape[0],diff_conditions=True,verbose=args.verbose)
 
-        sample_actions=samples.actions[:,:step_size,:]
-        sample_observations=samples.observations[:,:step_size,:]
+        # No sliding window
+        sample_actions=samples.actions
+        sample_observations=samples.observations
 
         predictions=torch.cat((sample_actions,sample_observations),dim=-1) 
 
-        loss_value=loss(torch.flatten(predictions,start_dim=1),torch.flatten(targets,start_dim=1))
+        loss_value=loss(torch.flatten(predictions,start_dim=1),torch.flatten(targets.trajectories,start_dim=1))
 
         loss_value.backward() # gradients will be accumulated across different datapoints, and then backprop once we have gone through entire data
-
+        print(loss_value.detach().cpu().numpy())
         curr_loss+=loss_value.detach().cpu().numpy()
         terms+=1
 
         optimizer.step()
 
         optimizer.zero_grad()
-
     loss_array.append(curr_loss/terms)
-    # FOR 1 ENTIRE BATCH (RUNS OUT OF MEMORY IN LARGE MAZE IN CLUSTER/CUDA)
-    """
-    observations=expert_trajectories[:,0,2:].detach().cpu()
-    conditions={0:observations}
 
-    action,samples=policy(conditions,batch_size=observations.shape[0],diff_conditions=True,verbose=args.verbose)
-
-    sample_actions=samples.actions[:,:step_size,:]
-    sample_observations=samples.observations[:,:step_size,:]
-
-    predictions=torch.cat((sample_actions,sample_observations),dim=-1) 
-
-    loss_value=loss(torch.flatten(predictions,start_dim=1),torch.flatten(targets,start_dim=1))
-
-    loss_value.backward() # gradients will be accumulated across different datapoints, and then backprop once we have gone through entire data
-
-    curr_loss+=loss_value.detach().cpu().numpy()/expert_trajectories.shape[0]
-
-    optimizer.step()
-
-    optimizer.zero_grad()
-    loss_array.append(curr_loss)    
-    """
-    
     if e%10==0 or e==epochs-1:
         torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MMD.pt'.format(f=e+1))
-
     plt.figure()
     plt.plot(range(len(loss_array)),loss_array)
     plt.xlabel('Epoch Number',fontsize=12)
@@ -195,6 +151,13 @@ for e in range(epochs):
     print(loss_array)
     plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MMD.pdf',format="pdf", bbox_inches="tight")
     #plt.close()
+
+
+#data = {
+#        'step': value_function.step,
+#        'model': value_function.model.state_dict(),
+#        'ema': value_function.ema_model.state_dict()
+#}
 
 # NOTE: SAVE WITHOUT .model. so that the parameters have name model.fc.weight instead of fc.weight, and thus match what load() function in training.py expects! 
 torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MMD.pt'.format(f=epochs))
@@ -207,3 +170,21 @@ plt.ylabel('MMD Loss',fontsize=12)
 print(loss_array)
 plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MMD.pdf',format="pdf", bbox_inches="tight")
 plt.show()
+
+
+#model_trained=torch.load('logs/maze2d-umaze-v1/values/state_10000.pt')
+
+#print(len(model_trained['fc.weight']))
+#for param in model_trained['fc.weight']:
+#  print(len(param))
+#  print(param)
+                
+    
+
+    
+
+    
+
+
+
+

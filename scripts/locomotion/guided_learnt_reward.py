@@ -16,14 +16,14 @@ class Parser(utils.Parser):
 
 #---------------------------------- setup ----------------------------------#
 
-args = Parser().parse_args('guided_plan')
+args = Parser().parse_args('guided_learnt_reward')
 
 
 #---------------------------------- loading ----------------------------------#
 
 diffusion_experiment = utils.load_diffusion(args.logbase, 'halfcheetah-medium-replay-v2', args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
 
-value_experiment = utils.load_diffusion(
+value_experiment = utils.load_diffusion_learnt_reward(
     args.loadbase, args.dataset, args.value_loadpath,
     epoch=args.value_epoch, seed=args.env_seed,
 )
@@ -90,6 +90,7 @@ trajectories=[]
 max_steps=env.max_episode_steps
 #max_steps=128
 #max_steps=200
+max_steps=20
 for t in range(max_steps):
 
     if t % 10 == 0: print(args.savepath, flush=True)
@@ -130,23 +131,6 @@ for t in range(max_steps):
     ## render every `args.vis_freq` steps
     logger.log(t, samples, state, rollout)
 
-    """ # THIS SECTION WAS IN MAZE2D, I DONT THINK WE WANT IT ANYMORE BUT NEED TO CHECK
-    # logger.log(score=score, step=t)
-    if t % args.vis_freq == 0 or terminal:
-        fullpath = join(args.savepath, f'{t}'+str(args.seed)+'.png')
-
-        if t == 0: renderer.composite(fullpath, samples.observations.detach().cpu() , ncol=1)
-
-
-        # renderer.render_plan(join(args.savepath, f'{t}_plan.mp4'), samples.actions, samples.observations, state)
-
-        ## save rollout thus far
-        renderer.composite(join(args.savepath, 'rollout'+str(args.seed)+'.png'), np.array(rollout)[None], ncol=1)
-
-        # renderer.render_rollout(join(args.savepath, f'rollout.mp4'), rollout, fps=80)
-
-        # logger.video(rollout=join(args.savepath, f'rollout.mp4'), plan=join(args.savepath, f'{t}_plan.mp4'), step=t)
-    """
     if terminal:
         break
 

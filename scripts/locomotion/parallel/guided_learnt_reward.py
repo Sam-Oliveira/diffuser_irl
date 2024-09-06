@@ -3,6 +3,7 @@ import numpy as np
 from os.path import join
 import pdb
 import torch
+import gym
 
 from diffuser.guides.policies import Policy
 import diffuser.datasets as datasets
@@ -16,14 +17,14 @@ class Parser(utils.Parser):
 
 #---------------------------------- setup ----------------------------------#
 
-args = Parser().parse_args('guided_plan')
+args = Parser().parse_args('guided_learnt_reward')
 
 
 #---------------------------------- loading ----------------------------------#
 
 diffusion_experiment = utils.load_diffusion(args.logbase, 'halfcheetah-medium-replay-v2', args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
 
-value_experiment = utils.load_diffusion(
+value_experiment = utils.load_diffusion_learnt_reward(
     args.loadbase, args.dataset, args.value_loadpath,
     epoch=args.value_epoch, seed=args.env_seed,
 )
@@ -74,11 +75,16 @@ policy = policy_config()
 
 #---------------------------------- main loop ----------------------------------#
 env=dataset.env
-observation = env.reset()
+num_envs=20
 
-#if args.conditional:
-#print('Resetting target')
-#env.set_target()
+# create multiple envs
+envs=gym.vector.SyncVectorEnv([
+
+    lambda: gym.make(args.dataset) for i in range(num_envs)
+
+])
+
+observation=envs.reset()
 
 
 ## observations for rendering
@@ -90,13 +96,15 @@ trajectories=[]
 max_steps=env.max_episode_steps
 #max_steps=128
 #max_steps=200
+max_steps=5
+learnt_trajectories=torch.empty((num_envs,max_steps,dataset.observation_dim+dataset.action_dim))
 for t in range(max_steps):
 
     if t % 10 == 0: print(args.savepath, flush=True)
 
 
     ## save state for rendering only
-    state = env.state_vector().copy()
+    state=envs.observations.copy()
 
     ## IMPAINTING
     #target = env._target 
@@ -104,54 +112,36 @@ for t in range(max_steps):
 
 
     ## format current observation for conditioning (NO IMPAINTING)
-    conditions = {0: observation}
-    
+    conditions = {0: envs.observations}
+
     #i think basically we take 1 step, and plan again every time! (in rollout image. in plan, it's just the plan at first step)
-    action, samples = policy(conditions, batch_size=args.batch_size, verbose=args.verbose)
+    action, samples = policy(conditions, batch_size=args.batch_size,diff_conditions=True,verbose=args.verbose)
+    
+
+    actions=torch.squeeze(samples.actions[:,0,:]).detach().cpu().numpy()
+    trajectories.append(np.concatenate((actions,envs.observations),axis=-1))
+    learnt_trajectories[:,t,:]=(torch.cat((torch.from_numpy(actions),torch.from_numpy(envs.observations)),axis=-1))
 
 
-    trajectories.append(np.concatenate((action.detach().cpu().numpy(),observation)))
-
-    ## execute action in environment
-    next_observation, reward, terminal, _ = env.step(action.detach().cpu().numpy())
+    next_observation, reward, terminal, _ = envs.step(samples.actions[:,0].detach().cpu().numpy())
 
     ## print reward and score
     total_reward += reward
-    score = env.get_normalized_score(total_reward)
-    print(
-        f't: {t} | r: {reward:.2f} |  R: {total_reward:.2f} | score: {score:.4f} | '
-        f'values: {samples.values} | scale: {args.scale}',
-        flush=True,
-    )
 
     ## update rollout observations. Note this does not include actions! Rollout is a list of nparrays, each of them is the current state at a step
     rollout.append(next_observation.copy())
 
-    ## render every `args.vis_freq` steps
-    logger.log(t, samples, state, rollout)
-
-    """ # THIS SECTION WAS IN MAZE2D, I DONT THINK WE WANT IT ANYMORE BUT NEED TO CHECK
-    # logger.log(score=score, step=t)
-    if t % args.vis_freq == 0 or terminal:
-        fullpath = join(args.savepath, f'{t}'+str(args.seed)+'.png')
-
-        if t == 0: renderer.composite(fullpath, samples.observations.detach().cpu() , ncol=1)
+    ## render every `args.vis_freq` steps. Just basically renders one of the items in batch.
+    # can change render method if i want to render the entire batch. not worth it now
+    #samples=samples._replace(observations=samples.observations[[0]])
+    #samples=samples._replace(actions=samples.actions[[0]])
+    #samples=samples._replace(values=samples.values[[0]])
+    #logger.log(t, samples, state[[0]], np.stack(rollout,axis=1)[[0],:,:])
 
 
-        # renderer.render_plan(join(args.savepath, f'{t}_plan.mp4'), samples.actions, samples.observations, state)
-
-        ## save rollout thus far
-        renderer.composite(join(args.savepath, 'rollout'+str(args.seed)+'.png'), np.array(rollout)[None], ncol=1)
-
-        # renderer.render_rollout(join(args.savepath, f'rollout.mp4'), rollout, fps=80)
-
-        # logger.video(rollout=join(args.savepath, f'rollout.mp4'), plan=join(args.savepath, f'{t}_plan.mp4'), step=t)
-    """
-    if terminal:
+    if terminal.any():
         break
 
-    observation = next_observation
-
 ## write results to json file at `args.savepath`
-logger.finish(t, score, total_reward, terminal, diffusion_experiment, value_experiment)
+logger.finish(t, 0, total_reward.tolist(), bool(terminal.any()), diffusion_experiment, value_experiment)
 

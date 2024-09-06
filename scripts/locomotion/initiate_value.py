@@ -8,7 +8,7 @@ import pdb
 
 
 class Parser(utils.Parser):
-    dataset: str = 'halfcheetah-medium-expert-v2'
+    dataset: str = 'halfcheetah-medium-replay-v2'
     config: str = 'config.locomotion'
 
 args = Parser().parse_args('init_values')

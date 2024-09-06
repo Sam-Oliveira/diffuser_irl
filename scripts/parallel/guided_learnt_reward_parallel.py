@@ -3,6 +3,7 @@ import numpy as np
 from os.path import join
 import pdb
 import torch
+import gym
 
 from diffuser.guides.policies import Policy
 import diffuser.datasets as datasets
@@ -72,29 +73,55 @@ policy = policy_config()
 
 #---------------------------------- main loop ----------------------------------#
 env=dataset.env
-observation = env.reset()
+num_envs=20
 
-#if args.conditional:
-print('Resetting target')
-env.set_target()
+# create multiple envs
+envs=gym.vector.SyncVectorEnv([
 
+    lambda: gym.make(args.dataset) for i in range(num_envs)
+
+])
+
+envs.reset()
+start_points=torch.from_numpy(np.asarray([
+    [1,1.5,0,0],
+    [1,3,0,0],
+    [2,3,0,0],
+    [3,1.5,0,0],
+    [3,3,0,0]
+]))
+
+
+#envs.observations=start_points.repeat(int(num_envs/start_points.shape[0]),1).detach().cpu().numpy()
+envs.observations=torch.repeat_interleave(start_points,int(num_envs/start_points.shape[0]),0).detach().cpu().numpy()
+
+
+#print(envs.__dict__)
+for i,environ in enumerate(envs.envs):
+    environ.set_state(envs.observations[i,:2],envs.observations[i,2:])
+
+#print(envs.__dict__)
+#observation=env.set_state(np.asarray([7,1]),np.asarray([0,0]))
 
 ## observations for rendering
-rollout = [observation.copy()] #1st observation I think
+rollout = [envs.observations.copy()] #1st observation I think
 
 total_reward = 0
 trajectories=[]
 
-value_function.model.eval()
-#print(args.value_loadpath)
+max_steps=env.max_episode_steps
+#max_steps=128
+max_steps=128
 
-umb_steps=env.max_episode_steps
-numb_steps=300
-for t in range(numb_steps):
+learnt_trajectories=torch.empty((num_envs,max_steps,dataset.observation_dim+dataset.action_dim))
+
+for t in range(max_steps):
 
 
     ## save state for rendering only
-    state = env.state_vector().copy()
+    #state = envs.state_vector().copy()
+
+    state=envs.observations.copy()
 
     ## IMPAINTING
     #target = env._target 
@@ -102,108 +129,56 @@ for t in range(numb_steps):
 
 
     ## format current observation for conditioning (NO IMPAINTING)
-    conditions = {0: observation}
+    conditions = {0: envs.observations}
 
     #i think basically we take 1 step, and plan again every time! (in rollout image. in plan, it's just the plan at first step)
-    action, samples = policy(conditions, batch_size=args.batch_size, verbose=args.verbose)
+    action, samples = policy(conditions, batch_size=args.batch_size,diff_conditions=True,verbose=args.verbose)
+    
 
-    #print(type(action))
-    #print(type(observation))
-    trajectories.append(np.concatenate((action.detach().cpu().numpy(),observation)))
+    actions=torch.squeeze(samples.actions[:,0,:]).detach().cpu().numpy()
+    trajectories.append(np.concatenate((actions,envs.observations),axis=-1))
+    learnt_trajectories[:,t,:]=(torch.cat((torch.from_numpy(actions),torch.from_numpy(envs.observations)),axis=-1))
 
-    ## execute action in environment
-    next_observation, reward, terminal, _ = env.step(action.detach().cpu().numpy())
+
+    next_observation, reward, terminal, _ = envs.step(samples.actions[:,0].detach().cpu().numpy())
+
 
     ## print reward and score
     total_reward += reward
-    score = env.get_normalized_score(total_reward)
-    print(
-        f't: {t} | r: {reward:.2f} |  R: {total_reward:.2f} | score: {score:.4f} | '
-        f'{action.detach().cpu().numpy()}'
-    )
-
-    # just for printing
-    if 'maze2d' in args.dataset:
-        xy = next_observation[:2]
-        goal = env.unwrapped._target
-        print(
-            f'maze | pos: {xy} | goal: {goal}'
-        )
 
     ## update rollout observations. Note this does not include actions! Rollout is a list of nparrays, each of them is the current state at a step
     rollout.append(next_observation.copy())
 
     # logger.log(score=score, step=t)
-    if t % args.vis_freq == 0 or terminal:
-        fullpath = join(args.savepath, f'{t}.png')
+    if t % args.vis_freq == 0 or terminal.any():
+        fullpath = join(args.savepath, f'{t}'+str(args.seed)+'.png')
 
-        if t == 0: renderer.composite(fullpath, samples.observations.detach().cpu().numpy() , ncol=1)
+        if t == 0: renderer.composite(fullpath, samples.observations[:,:-1,:].detach().cpu().numpy() , ncol=int(num_envs/start_points.shape[0]))
 
 
         # renderer.render_plan(join(args.savepath, f'{t}_plan.mp4'), samples.actions, samples.observations, state)
 
         ## save rollout thus far
-        renderer.composite(join(args.savepath, 'rollout.png'), np.array(rollout)[None], ncol=1)
+
+        renderer.composite(join(args.savepath, 'rollout'+str(args.seed)+'.png'),np.stack(rollout,axis=1), ncol=int(num_envs/start_points.shape[0]))
 
         # renderer.render_rollout(join(args.savepath, f'rollout.mp4'), rollout, fps=80)
 
         # logger.video(rollout=join(args.savepath, f'rollout.mp4'), plan=join(args.savepath, f'{t}_plan.mp4'), step=t)
 
-    if terminal:
+    if terminal.any():
         break
-
-    observation = next_observation
 
 # logger.finish(t, env.max_episode_steps, score=score, value=0)
 
 ## save result as a json file
-#json_path = join(args.savepath, 'rollout'+str(args.seed)+'.json')
+json_path = join(args.savepath, 'rollout'+str(args.seed)+'.json')
 
 # Trajectories is list of np arrays. Transform to list of lists for json file
-#trajectories=[t.tolist() for t in trajectories]
+trajectories=[t.tolist() for t in trajectories]
 
-#json_data = {'score': score, 'step': t, 'return': total_reward, 'term': terminal,
-#    'epoch_diffusion': diffusion_experiment.epoch,'rollout':trajectories}
-#json.dump(json_data, open(json_path, 'w'), indent=2, sort_keys=True)
+json_data = {'step': t, 'return': total_reward.tolist(), 'term': bool(terminal.any()),
+    'epoch_diffusion': diffusion_experiment.epoch,'rollout':trajectories}
+json.dump(json_data, open(json_path, 'w'), indent=2, sort_keys=True)
 
-
-
-# Flag to load the good model while I haven't retrained it to be able to do guided sampling with it
-good_model=False
-
-if good_model:
-    print('here')
-    model_trained=torch.load('logs/maze2d-umaze-v1/values/H128_T64_d0.995/state_500.pt')
-    parameter=model_trained['model.fc.weight']
-else:
-    for name,param in value_function.model.named_parameters():
-        if name=='fc.weight':
-            #print(param)
-            parameter=param.detach().cpu().numpy()
-                 
-#print(parameter)
-x=np.linspace(-1,1,num=30)
-y=np.linspace(-1,1,num=30)
-xv,yv=np.meshgrid(x,y,indexing='ij')
-
-
-#print(xv[0,-1])
-#print(yv[0,-1])
-
-# JUST TRUST THAT THE FIRST IS YV AND THE SECOND IS XV. THAT IS THE WAY THE PLOTTING WILL WORK PROPERLY, EVEN IF NOT FULLY UNDERSTOOD.
-numb_steps=[0,1,2,3,4,5,10,20]
-for step in numb_steps:
-    values=np.multiply(yv,parameter[0,2+6*step])+np.multiply(xv,parameter[0,3+6*step])
-
-    print(parameter[0,2+6*step])
-    print(parameter[0,3+6*step])
-    #print(values[0,0])
-    #print(values[-1,-1])
-    #print(values[0,-1])
-    #print(values[-1,0])
-    values=np.pad(values,((10,10),(10,10)),mode='constant',constant_values=(np.nan,)) #for maze limits
-    values[20:30,10:30]=np.nan #for maze limits!
-    #print(values.shape)
-
-    #print(values)
-    renderer.composite_reward_function(join(args.savepath, 'values_{s}.png'.format(s=step)), np.array(values)[None], ncol=1)
+torch.save(learnt_trajectories,join(args.savepath,'trajectories.pt'))

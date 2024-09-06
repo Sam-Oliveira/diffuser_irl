@@ -263,6 +263,10 @@ class MMD_loss(nn.Module):
             YY = torch.mean(kernels[batch_size:, batch_size:])
             XY = torch.mean(kernels[:batch_size, batch_size:])
             YX = torch.mean(kernels[batch_size:, :batch_size])
+            #print(XX)
+            #print(YY)
+            #print(XY)
+            #print(YX)
             loss = torch.mean(XX + YY - XY -YX)
             return loss
         elif kernel=='matern':
