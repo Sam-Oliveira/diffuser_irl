@@ -12,6 +12,12 @@ from .helpers import (
     Conv1dBlock,
 )
 
+Activations = {
+    "mish": nn.Mish,
+    "relu": nn.ReLU,
+    "leaky_relu": nn.LeakyReLU,
+}
+
 class ResidualTemporalBlock(nn.Module):
 
     def __init__(self, inp_channels, out_channels, embed_dim, horizon, kernel_size=5):
@@ -134,14 +140,13 @@ class TemporalUnet(nn.Module):
         x = einops.rearrange(x, 'b t h -> b h t')
         return x
 
-
-class ValueFunction(nn.Module):
+class ValueFunction_1Layer(nn.Module):
     def __init__(
         self,
         horizon,
         transition_dim,
         cond_dim,
-        dim=6, 
+        dim=8,  # I THINK THIS MIGHT BE THE HORIZON?? since they had 32 in main branch, which is the base horizon for locomotion
         dim_mults=(1, 2, 4, 8),
         out_dim=1,
     ):
@@ -203,17 +208,361 @@ class ValueFunction(nn.Module):
         x = F.relu(self.h2o(x))
         print(x.shape)
         return x
+
+class ValueFunction_4Layer_UMaze(nn.Module):
+    def __init__(
+        self,
+        horizon,
+        transition_dim,
+        cond_dim,
+        dim=8,  # I THINK THIS MIGHT BE THE HORIZON?? since they had 32 in main branch, which is the base horizon for locomotion
+        dim_mults=(1, 2, 4, 8),
+        out_dim=1,
+    ):
+        super().__init__()
+
+        #self.input_size = input_size
+        #self.hidden_size = hidden_size
+        #self.output_size = output_size
+        #self.sin=SinusoidalPosEmb(dim),
+        self.fc1 = nn.Linear(128*6,384) #dimensions for umaze
+        self.fc2 = nn.Linear(384,128) #dimensions for umaze
+        self.fc3 = nn.Linear(128,64) #dimensions for umaze
+        self.fc4 = nn.Linear(64,1) #dimensions for umaze
+        self.non_lin=torch.nn.ReLU()
+        #self.fc = nn.Linear(384*6,1,bias=False) #dimensions for large maze
+        
+        
+    def forward(self, x, cond, time, *args):
+        '''
+            x : [ batch x horizon x transition ]
+        '''
+
+        x = einops.rearrange(x, 'b h t -> b t h')
+
+        ## mask out first conditioning timestep, since this is not sampled by the model
+        #x[:, :, 0] = 0
+        #x = self.sin(x)
+
+        # NN to learn reward of function below
+
+        x=torch.flatten(x,start_dim=1) #changed this and the return a bit on 13th July
+        x = self.non_lin(self.fc1(x))
+        x = self.non_lin(self.fc2(x))
+        x = self.non_lin(self.fc3(x))
+        x = self.fc4(x)
+
+
+        return x
+
+        # NON-NN FUNCTION
+
+        # So first two coordinates are actions. Then 3rd and 4th are coordinates, but I think y coordinate comes before x. I think this migth  be the opposite for velocity, but not sure.
+        # Also note when printed, I think y gets printed before x! and they start on top left corner.
+        x=x[:,2:4,:]
+        x=torch.sum(x,dim=1)
+        x=torch.sum(x,dim=1,keepdim=True)
+        return 5*x
+    
+        # DIFF NON-NN FUNCTION
+        #x=x[:,2:4,:]
+        #new_x= x[:,0,:] - x[:,1,:]
+        #new_x=torch.sum(new_x,dim=1,keepdim=True)
+        #return 5*new_x
+
+        # THIRD NON-NN FUNCTION
+        x=x[:,2:4,:]
+        new_x= x[:,1,:]
+        new_x=torch.sum(new_x,dim=1,keepdim=True)
+        return 5*new_x
     
 
-""" this class is used by them for guide in main branch. however, i think see class below for guide for maze2d! (they dont actually do it, but they include this code in maze2d branch?)
-class ValueFunction(nn.Module):
+        #return x.reshape((1,x.shape[0]))
+
+        x=torch.flatten(x,start_dim=1)
+        x = F.relu(self.i2h(x))
+        x = F.relu(self.h2h(x))
+        x = F.relu(self.h2o(x))
+        print(x.shape)
+        return x
+    
+class ValueFunction_4Layer_LargeMaze(nn.Module):
+    def __init__(
+        self,
+        horizon,
+        transition_dim,
+        cond_dim,
+        dim=8,  # I THINK THIS MIGHT BE THE HORIZON?? since they had 32 in main branch, which is the base horizon for locomotion
+        dim_mults=(1, 2, 4, 8),
+        out_dim=1,
+    ):
+        super().__init__()
+
+        #self.input_size = input_size
+        #self.hidden_size = hidden_size
+        #self.output_size = output_size
+        #self.sin=SinusoidalPosEmb(dim),
+        self.fc1 = nn.Linear(384*6,1024) #dimensions for umaze
+        self.fc2 = nn.Linear(1024,512) #dimensions for umaze
+        self.fc3 = nn.Linear(512,128) #dimensions for umaze
+        self.fc4 = nn.Linear(128,1) #dimensions for umaze
+        self.non_lin=torch.nn.ReLU()
+        #self.fc = nn.Linear(384*6,1,bias=False) #dimensions for large maze
+        
+        
+    def forward(self, x, cond, time, *args):
+        '''
+            x : [ batch x horizon x transition ]
+        '''
+
+        x = einops.rearrange(x, 'b h t -> b t h')
+
+        ## mask out first conditioning timestep, since this is not sampled by the model
+        #x[:, :, 0] = 0
+        #x = self.sin(x)
+
+        # NN to learn reward of function below
+
+        x=torch.flatten(x,start_dim=1) #changed this and the return a bit on 13th July
+        x = self.non_lin(self.fc1(x))
+        x = self.non_lin(self.fc2(x))
+        x = self.non_lin(self.fc3(x))
+        x = self.fc4(x)
+
+
+        return x
+class TrueReward(nn.Module):
+    def __init__(
+        self,
+        horizon,
+        transition_dim,
+        cond_dim,
+        dim=8,  # I THINK THIS MIGHT BE THE HORIZON?? since they had 32 in main branch, which is the base horizon for locomotion
+        dim_mults=(1, 2, 4, 8),
+        out_dim=1,
+    ):
+        super().__init__()
+
+        #self.input_size = input_size
+        #self.hidden_size = hidden_size
+        #self.output_size = output_size
+        #self.sin=SinusoidalPosEmb(dim),
+        self.fc = nn.Linear(128*6,1,bias=False) #dimensions for umaze
+        #self.fc = nn.Linear(384*6,1,bias=False) #dimensions for large maze
+        
+        
+    def forward(self, x, cond, time, *args):
+        '''
+            x : [ batch x horizon x transition ]
+        '''
+
+        x = einops.rearrange(x, 'b h t -> b t h')
+
+        # So first two coordinates are actions. Then 3rd and 4th are coordinates, but I think y coordinate comes before x. I think this migth  be the opposite for velocity, but not sure.
+        # Also note when printed, I think y gets printed before x! and they start on top left corner.
+        x=x[:,2:4,:]
+        x=torch.sum(x,dim=1)
+        x=torch.sum(x,dim=1,keepdim=True)
+        return 5*x
+    
+        # DIFF NON-NN FUNCTION
+        #x=x[:,2:4,:]
+        #new_x= x[:,0,:] - x[:,1,:]
+        #new_x=torch.sum(new_x,dim=1,keepdim=True)
+        #return 5*new_x
+
+        # THIRD NON-NN FUNCTION
+        x=x[:,2:4,:]
+        new_x= x[:,1,:]
+        new_x=torch.sum(new_x,dim=1,keepdim=True)
+        return 5*new_x
+    
+
+        #return x.reshape((1,x.shape[0]))
+
+        x=torch.flatten(x,start_dim=1)
+        x = F.relu(self.i2h(x))
+        x = F.relu(self.h2h(x))
+        x = F.relu(self.h2o(x))
+        print(x.shape)
+        return x
+
+class ValueFunction_UMaze(nn.Module):
+    def __init__(
+        self,
+        transition_dim,
+        cond_dim,
+        horizon=128,
+        kernel_size = 5,
+        stride = 1,
+        dim=4,
+        dim_mults=(8,4,2,1),
+        embed_dim = 32,
+        activation = "mish",
+    ):
+        super().__init__()
+        self.horizon = horizon
+        self.activation = activation
+        dims = [transition_dim + embed_dim, *map(lambda m: dim * m, dim_mults), 1]
+        in_out = list(zip(dims[:-1], dims[1:]))
+
+        l = horizon
+        for i, _ in enumerate(in_out):
+            print(l)
+            #l_in = horizons[-1]
+            s = stride if i > 0 else 1
+            l = int((l - kernel_size)/s + 1)
+            #horizons.append(l_out)
+
+        self.time_mlp = nn.Sequential(
+            SinusoidalPosEmb(embed_dim),
+            nn.Linear(embed_dim, embed_dim * 4),
+            nn.Mish() if self.activation == "mish" else nn.ReLU(),
+            nn.Linear(embed_dim * 4, embed_dim),
+        )
+
+        self.conv_blocks = [
+            nn.Sequential(
+                nn.Conv1d(
+                    in_dim, 
+                    out_dim, 
+                    kernel_size=kernel_size, 
+                    stride = stride if i > 0 else 1,
+                    padding = "valid"
+                ), 
+                Activations[self.activation](),
+                nn.InstanceNorm1d(out_dim, affine=True)
+                #nn.GroupNorm(1, out_dim)
+            ) for i, (in_dim, out_dim) in enumerate(in_out)
+        ]
+
+        self.convs = nn.Sequential(
+            *self.conv_blocks,
+            nn.Flatten(),
+            nn.Linear(l, 1)
+        )
+
+    def forward(self, x_t, cond, t):
+        x_t = einops.rearrange(x_t, 'b h t -> b t h')
+        t_emb = self.time_mlp(t).unsqueeze(-1).tile((1, 1, self.horizon))
+        return self.convs(torch.cat([x_t, t_emb], dim = 1))
+    
+class ValueFunction_LargeMaze(nn.Module):
+    def __init__(
+        self,
+        transition_dim,
+        cond_dim,
+        horizon=384,
+        kernel_size = 3,
+        stride = 1,
+        dim=8,
+        dim_mults=(8, 4, 2, 1),
+        embed_dim = 8,
+        activation = "mish",
+    ):
+        super().__init__()
+        self.horizon = horizon
+        self.activation = activation
+        dims = [transition_dim + embed_dim, *map(lambda m: dim * m, dim_mults), 1]
+        in_out = list(zip(dims[:-1], dims[1:]))
+
+        l = horizon
+        for i, _ in enumerate(in_out):
+            print(l)
+            #l_in = horizons[-1]
+            s = stride if i > 0 else 1
+            l = int((l - kernel_size)/s + 1)
+            #horizons.append(l_out)
+
+        self.time_mlp = nn.Sequential(
+            SinusoidalPosEmb(embed_dim),
+            nn.Linear(embed_dim, embed_dim * 4),
+            nn.Mish() if self.activation == "mish" else nn.ReLU(),
+            nn.Linear(embed_dim * 4, embed_dim),
+        )
+
+        self.conv_blocks = [
+            nn.Sequential(
+                nn.Conv1d(
+                    in_dim, 
+                    out_dim, 
+                    kernel_size=kernel_size, 
+                    stride = stride if i > 0 else 1,
+                    padding = "valid"
+                ), 
+                Activations[self.activation](),
+                nn.InstanceNorm1d(out_dim, affine=True)
+                #nn.GroupNorm(1, out_dim)
+            ) for i, (in_dim, out_dim) in enumerate(in_out)
+        ]
+
+        self.convs = nn.Sequential(
+            *self.conv_blocks,
+            nn.Flatten(),
+            nn.Linear(l, 1)
+        )
+
+    def forward(self, x_t, cond, t):
+        x_t = einops.rearrange(x_t, 'b h t -> b t h')
+        t_emb = self.time_mlp(t).unsqueeze(-1).tile((1, 1, self.horizon))
+        return self.convs(torch.cat([x_t, t_emb], dim = 1))
+
+# this class is used by them for guide in main branch. however, i think see class below for guide for maze2d! (they dont actually do it, but they include this code in maze2d branch?)
+
+class ValueFunction_Mujoco(nn.Module):
+    def __init__(
+        self,
+        horizon,
+        transition_dim,
+        cond_dim,
+        dim=8,  # I THINK THIS MIGHT BE THE HORIZON?? since they had 32 in main branch, which is the base horizon for locomotion
+        dim_mults=(1, 2, 4, 8),
+        out_dim=1,
+    ):
+        super().__init__()
+
+        #self.input_size = input_size
+        #self.hidden_size = hidden_size
+        #self.output_size = output_size
+        #self.sin=SinusoidalPosEmb(dim),
+        self.fc1 = nn.Linear(23*4,128) #dimensions for umaze
+        self.fc2 = nn.Linear(128,64) #dimensions for umaze
+        self.fc3 = nn.Linear(64,32) #dimensions for umaze
+        self.fc4 = nn.Linear(32,1) #dimensions for umaze
+        self.non_lin=torch.nn.ReLU()
+        #self.fc = nn.Linear(384*6,1,bias=False) #dimensions for large maze
+        
+        
+    def forward(self, x, cond, time, *args):
+        '''
+            x : [ batch x horizon x transition ]
+        '''
+
+        x = einops.rearrange(x, 'b h t -> b t h')
+
+        ## mask out first conditioning timestep, since this is not sampled by the model
+        #x[:, :, 0] = 0
+        #x = self.sin(x)
+
+        # NN to learn reward of function below
+
+        x=torch.flatten(x,start_dim=1) #changed this and the return a bit on 13th July
+        x = self.non_lin(self.fc1(x))
+        x = self.non_lin(self.fc2(x))
+        x = self.non_lin(self.fc3(x))
+        x = self.fc4(x)
+
+
+        return x
+"""
+class ValueFunction_Mujoco(nn.Module):
 
     def __init__(
         self,
         horizon,
         transition_dim,
         cond_dim,
-        dim=6, 
+        dim=32, 
         dim_mults=(1, 2, 4, 8),
         out_dim=1,
     ):
@@ -294,7 +643,6 @@ class ValueFunction(nn.Module):
         out = self.final_block(torch.cat([x, t], dim=-1))
         return out  
 """
-
 # This was in maze2d original branch, but I haeve no idea why? it doesnt seem to be used anywhere.
 # i think it's the equivalent of ValueFunction() but for maze2d
 class TemporalValue(nn.Module):

@@ -120,11 +120,10 @@ base = {
     },
 
     'init_values': {
-        'model': 'models.ValueFunction',
+        'model': 'models.ValueFunction_4Layer_UMaze',
         'diffusion': 'models.ValueDiffusion',
         'horizon': 128,
         'n_diffusion_steps': 64,
-        'dim_mults': (1, 4, 8),
         'renderer': 'utils.MuJoCoRenderer',
 
         ## dataset
@@ -213,7 +212,6 @@ base = {
         'policy': 'sampling.GuidedPolicy',
         'max_episode_length': 1000,
         'batch_size': 1,
-        'dim_mults': (1, 4, 8),
         'device': 'cpu',
 
         'termination_penalty': None,
@@ -262,7 +260,7 @@ base = {
         'guide': 'sampling.ValueGuide',
         'policy': 'sampling.GuidedPolicy',
         'max_episode_length': 1000,
-        'batch_size': 1,
+        'batch_size':1,
         'preprocess_fns': [], #think i might need the maze2d function from above. check what is does
         'device': 'cpu',
 
@@ -274,7 +272,7 @@ base = {
         'scale_grad_by_std': True,
         'conditional': False,
         'seed': 40, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
-        'env_seed':15, #seed for environment
+        'env_seed':13, #seed for environment
 
         ## serialization
         'loadbase': None,
@@ -301,12 +299,11 @@ base = {
 
         'verbose': True,
     },
-    'guided_learning_mmd_2': {
+    'guided_learning_mmd': {
         'guide': 'sampling.ValueGuide',
         'policy': 'sampling.GuidedPolicy',
         'max_episode_length': 1000,
         'batch_size': 1,
-        'dim_mults': (1, 4, 8),
         'device': 'cpu',
 
         'termination_penalty': None,
@@ -390,7 +387,7 @@ maze2d_umaze_v1 = {
         'horizon': 128,
         'n_diffusion_steps': 64,
     },
-    'guided_learning_mmd_2': {
+    'guided_learning_mmd': {
         'horizon': 128,
         'n_diffusion_steps': 64,
         'max_path_length': 4000,

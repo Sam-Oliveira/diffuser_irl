@@ -83,27 +83,32 @@ print('Resetting target')
 env.set_target()
 
 
-# Load expert trajectories
-path_to_json = 'logs/maze2d-umaze-v1/plans/guided_H128_T64_d0.995_LimitsNormalizer_b1_stop-gradFalse_condFalse_env_seed13/0/'
-json_files = [pos_json for pos_json in os.listdir(path_to_json) if pos_json.startswith('rollout') and pos_json.endswith('.json')]
-
-# Dataset size depends on the step_size 
+# Dataset size depends on the step_size
 step_size=10
+start_points=[13,14,15]
+#DEPENDING ON ENVIRONMENT (numb of steps below - 200 or 300 )
+expert_trajectories=torch.empty((0,300,dataset.observation_dim+dataset.action_dim),device=args.device)
+for start in start_points:  
 
-expert_trajectories=torch.empty((0,env.max_episode_steps,dataset.observation_dim+dataset.action_dim))
-for file in range(len(json_files)):
-    with open(path_to_json+json_files[file]) as json_data:
-        data = json.load(json_data)
-    data_array=np.array(data['rollout'])
-    file_torch=torch.from_numpy(data_array)
-    expert_trajectories=torch.cat((expert_trajectories, file_torch.unsqueeze(0)))
+    #DEPENDING ON ENVIRONMENT
+    path_to_json = 'logs/maze2d-umaze-v1/plans/guided_H128_T64_d0.995_LimitsNormalizer_b1_stop-gradFalse_condFalse_env_seed{seed}/0/'.format(seed=start)
+    json_files = [pos_json for pos_json in os.listdir(path_to_json) if pos_json.startswith('rollout') and pos_json.endswith('.json')]
+    for file in range(len(json_files)):
+        with open(path_to_json+json_files[file]) as json_data:
+            data = json.load(json_data)
+        data_array=np.array(data['rollout'])
+        file_torch=torch.from_numpy(data_array).to(device=args.device)
+        expert_trajectories=torch.cat((expert_trajectories, file_torch.unsqueeze(0)))
 
 # Expert trajectories tensor is numb_trajectories x steps of rollout x state and action dim (=6)
 
 # Now basically make it so each datapoint isnt an entire trajectory, but each "step_size"-length section of a trajectory
+"""
 expert_trajectories=torch.flatten(expert_trajectories,start_dim=0,end_dim=1)
 expert_trajectories=torch.split(expert_trajectories,step_size,dim=0)
 expert_trajectories=torch.stack(expert_trajectories,dim=0)
+"""
+
 expert_trajectories=expert_trajectories.to(torch.float32)
 
 # Arguments
@@ -117,7 +122,7 @@ numb_exp_trajectories=len(expert_trajectories)
         
 loss = torch.nn.MSELoss()
 
-optimizer = torch.optim.Adam(value_function.model.parameters(), lr=2e-4)
+optimizer = torch.optim.Adam(value_function.model.parameters(), lr=2e-4) #2e-2 for batch methods. 2e-4 if 1 opt step per datapoint
 
 
 
@@ -125,12 +130,13 @@ loss_array=[]
 for e in range(epochs):
     print("EPOCH "+str(e))
     curr_loss=0
+    terms=0
 
-
+    """
     # FIRST ONE IS FOR BATCH DATA, BUT TRYING TO USE DATALOADER. ALSO NOW I HAVE CODE FOR DIFF CONDITIONING POINTS, SO I TRY TO DO IT AS IN MMD.
     # ALSO NOTE FOR THIS CASE, WE DO ONLY 1 UPDATE STEP ISNTREAD OF 1 EVERY DATAPOINT LIKE IN BOTH CASES BELOW. SO WILL PROB NEED LARGER LEARNING RATE
-
-    train_dataloader = DataLoader(expert_trajectories, batch_size=8, shuffle=False,num_workers=0)
+    size_batch=8
+    train_dataloader = DataLoader(expert_trajectories, batch_size=size_batch, shuffle=False,num_workers=0)
     for targets in train_dataloader:
         observations=targets[:,0,2:]
         conditions={0:observations}
@@ -145,17 +151,17 @@ for e in range(epochs):
 
         loss_value.backward() # gradients will be accumulated across different datapoints, and then backprop once we have gone through entire data
 
-        curr_loss+=loss_value.detach().numpy()
+        curr_loss+=loss_value.detach().numpy()/size_batch
 
         optimizer.step()
 
         optimizer.zero_grad()
 
+    loss_array.append(curr_loss)
 
 
-
-    # THIS IS IN CASE DATA WAS SPLIT AS ABOVE, i.e. batch mode, but still 1 opt step per datapoint
-    """
+    # THIS IS IN CASE DATA WAS SPLIT AS ABOVE, i.e. batch mode, but still 1 opt step per datapoint (CHANGE LEARNING RATE)
+    
     for i in range(expert_trajectories.shape[0]):
         observation=expert_trajectories[i,0,2:]
         #print(observation)
@@ -179,7 +185,7 @@ for e in range(epochs):
 
         loss_value.backward() # gradients will be accumulated across different datapoints, and then backprop once we have gone through entire data
 
-        curr_loss+=loss_value.detach().numpy()
+        curr_loss+=loss_value.detach().numpy()/expert_trajectories.shape[0]
 
         #make_dot(loss_value).view()
 
@@ -191,9 +197,9 @@ for e in range(epochs):
         optimizer.step()
 
         optimizer.zero_grad()
-
+    loss_array.append(curr_loss)
         
-    
+    """
     # BELOW IS FOR LOOPING THROUGH EACH BIG SEQUENCE AND UPDATING AFTER 10 STEPS
 
     for exp_traj in range(numb_exp_trajectories):
@@ -222,8 +228,8 @@ for e in range(epochs):
                 sample_observations=samples.observations[:,:step_size,:]
 
                 prediction=torch.cat((sample_actions,sample_observations),dim=-1)
-                #prediction.register_hook(lambda grad: print(grad))
- 
+                prediction.register_hook(lambda grad: print(grad))
+                print(prediction)
                 loss_value=loss(prediction,target)
                 #loss_value=MMD(torch.flatten(target,start_dim=1),torch.flatten(prediction,start_dim=1),'rbf')
                 #loss_value=MMD(torch.flatten(target,end_dim=1),torch.flatten(prediction,end_dim=1),'rbf')
@@ -241,6 +247,7 @@ for e in range(epochs):
                 loss_value.backward()
 
                 curr_loss+=loss_value.detach().numpy()
+                terms+=1
 
                 #make_dot(loss_value).view()
 
@@ -252,13 +259,13 @@ for e in range(epochs):
                 optimizer.step()
 
                 optimizer.zero_grad()
-    """
+    loss_array.append(curr_loss/terms)
+    
     #with torch.no_grad():
     #    for name,param in value_function.model.named_parameters():
     #        if name=='fc.weight':
     #            print(name)
     #            print(param.data)
-    loss_array.append(curr_loss)
     if e%10==0 or e==epochs-1:
         torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/state_{f}.pt'.format(f=e+1))
 

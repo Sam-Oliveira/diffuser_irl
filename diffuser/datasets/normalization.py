@@ -149,7 +149,7 @@ class GaussianNormalizer(Normalizer):
         return (x - self.means) / self.stds
 
     def unnormalize(self, x):
-        return x * self.stds + self.means
+        return x * torch.from_numpy(self.stds) + torch.from_numpy(self.means)
 
 
 class LimitsNormalizer(Normalizer):

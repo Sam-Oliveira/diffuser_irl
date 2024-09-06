@@ -22,24 +22,27 @@ class Policy:
         parameters = list(self.diffusion_model.parameters())
         return parameters[0].device
 
-    def _format_conditions(self, conditions, batch_size):
+    def _format_conditions(self, conditions, batch_size,diff_conditions=False):
         conditions = utils.apply_dict(
             self.normalizer.normalize,
             conditions,
             'observations',
         )
         conditions = utils.to_torch(conditions, dtype=torch.float32, device='cpu')
-        conditions = utils.apply_dict(
-            einops.repeat,
-            conditions,
-            'd -> repeat d', repeat=batch_size,
-        )
+        if diff_conditions:
+            return conditions
+        else:
+            conditions = utils.apply_dict(
+                einops.repeat,
+                conditions,
+                'd -> repeat d', repeat=batch_size,
+            )
         return conditions
 
-    def __call__(self, conditions, debug=False, batch_size=1):
+    def __call__(self, conditions, debug=False, batch_size=1,diff_conditions=False):
 
 
-        conditions = self._format_conditions(conditions, batch_size)
+        conditions = self._format_conditions(conditions, batch_size,diff_conditions)
 
         ## batchify and move to tensor [ batch_size x observation_dim ]
         # observation_np = observation_np[None].repeat(batch_size, axis=0)

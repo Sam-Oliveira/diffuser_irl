@@ -14,6 +14,7 @@ import diffuser.sampling as sampling
 from torch.utils.data import DataLoader
 from diffuser.models.helpers import MMD
 from torch.utils.data import SubsetRandomSampler
+from diffuser.models.helpers import MMD,MMD_loss
 
 class Parser(utils.Parser):
     dataset: str = 'halfcheetah-expert-v2'
@@ -102,7 +103,7 @@ epochs=500
 
 
         
-loss = torch.nn.MSELoss()
+loss = MMD_loss()
 
 optimizer = torch.optim.Adam(value_function.model.parameters(), lr=2e-3)
 
@@ -142,13 +143,13 @@ for e in range(epochs):
     loss_array.append(curr_loss/terms)
 
     if e%10==0 or e==epochs-1:
-        torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MSE.pt'.format(f=e+1))
+        torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MMD.pt'.format(f=e+1))
     plt.figure()
     plt.plot(range(len(loss_array)),loss_array)
     plt.xlabel('Epoch Number',fontsize=12)
     plt.ylabel('MMD Loss',fontsize=12)
     print(loss_array)
-    plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MSE.pdf',format="pdf", bbox_inches="tight")
+    plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MMD.pdf',format="pdf", bbox_inches="tight")
     #plt.close()
 
 
@@ -159,15 +160,15 @@ for e in range(epochs):
 #}
 
 # NOTE: SAVE WITHOUT .model. so that the parameters have name model.fc.weight instead of fc.weight, and thus match what load() function in training.py expects! 
-torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MSE.pt'.format(f=epochs))
+torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MMD.pt'.format(f=epochs))
 
 
 plt.figure()
 plt.plot(range(len(loss_array)),loss_array)
 plt.xlabel('Epoch Number',fontsize=12)
-plt.ylabel('MSE Loss',fontsize=12)
+plt.ylabel('MMD Loss',fontsize=12)
 print(loss_array)
-plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MSE.pdf',format="pdf", bbox_inches="tight")
+plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MMD.pdf',format="pdf", bbox_inches="tight")
 plt.show()
 
 

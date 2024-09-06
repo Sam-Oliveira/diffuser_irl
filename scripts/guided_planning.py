@@ -78,7 +78,6 @@ observation = env.reset()
 print('Resetting target')
 env.set_target()
 
-
 ## observations for rendering
 rollout = [observation.copy()] #1st observation I think
 
@@ -121,13 +120,6 @@ for t in range(max_steps):
         f'{action.detach().numpy()}'
     )
 
-    # just for printing
-    if 'maze2d' in args.dataset:
-        xy = next_observation[:2]
-        goal = env.unwrapped._target
-        print(
-            f'maze | pos: {xy} | goal: {goal}'
-        )
 
     ## update rollout observations. Note this does not include actions! Rollout is a list of nparrays, each of them is the current state at a step
     rollout.append(next_observation.copy())
