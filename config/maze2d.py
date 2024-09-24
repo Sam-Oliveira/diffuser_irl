@@ -120,7 +120,7 @@ base = {
     },
 
     'init_values': {
-        'model': 'models.ValueFunction_4Layer_UMaze',
+        'model': 'models.TrueReward',
         'diffusion': 'models.ValueDiffusion',
         'horizon': 128,
         'n_diffusion_steps': 64,
@@ -271,8 +271,8 @@ base = {
         'stop_grad':False,
         'scale_grad_by_std': True,
         'conditional': False,
-        'seed': 40, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
-        'env_seed':15, #seed for environment
+        'seed': 70, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
+        'env_seed':19, #seed for environment
 
         ## serialization
         'loadbase': None,

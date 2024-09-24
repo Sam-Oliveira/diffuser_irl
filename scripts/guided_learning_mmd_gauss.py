@@ -138,7 +138,8 @@ for e in range(epochs):
     terms=0
     # FIRST ONE IS FOR MINI BATCH DATA, BUT TRYING TO USE DATALOADER.
 
-    train_dataloader = DataLoader(expert_trajectories, batch_size=expert_trajectories.shape[0], shuffle=False,num_workers=0)
+    #train_dataloader = DataLoader(expert_trajectories, batch_size=expert_trajectories.shape[0], shuffle=False,num_workers=0)
+    train_dataloader = DataLoader(expert_trajectories, batch_size=48, shuffle=False,num_workers=0)
     for targets in train_dataloader:
         observations=targets[:,0,2:].detach().cpu()
         conditions={0:observations}
@@ -186,18 +187,25 @@ for e in range(epochs):
     """
     
     if e%10==0 or e==epochs-1:
-        torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MMD.pt'.format(f=e+1))
+        torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MMD_Gauss.pt'.format(f=e+1))
 
-    plt.figure()
-    plt.plot(range(len(loss_array)),loss_array)
-    plt.xlabel('Epoch Number',fontsize=12)
-    plt.ylabel('MMD Loss',fontsize=12)
-    print(loss_array)
-    plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MMD.pdf',format="pdf", bbox_inches="tight")
+        plt.figure()
+        plt.plot(range(len(loss_array)),loss_array)
+        plt.xlabel('Epoch Number',fontsize=12)
+        plt.ylabel('MMD Loss',fontsize=12)
+        print(loss_array)
+        plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MMD_Gauss.pdf',format="pdf", bbox_inches="tight")
     #plt.close()
+    if e==100:
+        plt.figure()
+        plt.plot(range(len(loss_array)),loss_array)
+        plt.xlabel('Epoch Number',fontsize=12)
+        plt.ylabel('MMD Loss',fontsize=12)
+        print(loss_array)
+        plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MMD_Gauss_100.pdf',format="pdf", bbox_inches="tight")
 
 # NOTE: SAVE WITHOUT .model. so that the parameters have name model.fc.weight instead of fc.weight, and thus match what load() function in training.py expects! 
-torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MMD.pt'.format(f=epochs))
+torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MMD_Gauss.pt'.format(f=epochs))
 
 
 plt.figure()
@@ -205,5 +213,5 @@ plt.plot(range(len(loss_array)),loss_array)
 plt.xlabel('Epoch Number',fontsize=12)
 plt.ylabel('MMD Loss',fontsize=12)
 print(loss_array)
-plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MMD.pdf',format="pdf", bbox_inches="tight")
+plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MMD_Gauss.pdf',format="pdf", bbox_inches="tight")
 plt.show()

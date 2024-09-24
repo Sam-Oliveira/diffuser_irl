@@ -348,8 +348,8 @@ class TrueReward(nn.Module):
         #self.hidden_size = hidden_size
         #self.output_size = output_size
         #self.sin=SinusoidalPosEmb(dim),
-        self.fc = nn.Linear(128*6,1,bias=False) #dimensions for umaze
-        #self.fc = nn.Linear(384*6,1,bias=False) #dimensions for large maze
+        #self.fc = nn.Linear(128*6,1,bias=False) #dimensions for umaze
+        self.fc = nn.Linear(384*6,1,bias=False) #dimensions for large maze
         
         
     def forward(self, x, cond, time, *args):
@@ -526,10 +526,10 @@ class ValueFunction_Mujoco(nn.Module):
         #self.hidden_size = hidden_size
         #self.output_size = output_size
         #self.sin=SinusoidalPosEmb(dim),
-        self.fc1 = nn.Linear(23*4,128) #dimensions for umaze
-        self.fc2 = nn.Linear(128,64) #dimensions for umaze
-        self.fc3 = nn.Linear(64,32) #dimensions for umaze
-        self.fc4 = nn.Linear(32,1) #dimensions for umaze
+        self.fc1 = nn.Linear(23*4,64) #dimensions for umaze
+        self.fc2 = nn.Linear(64,32) #dimensions for umaze
+        self.fc3 = nn.Linear(32,16) #dimensions for umaze
+        self.fc4 = nn.Linear(16,1) #dimensions for umaze
         self.non_lin=torch.nn.ReLU()
         #self.fc = nn.Linear(384*6,1,bias=False) #dimensions for large maze
         

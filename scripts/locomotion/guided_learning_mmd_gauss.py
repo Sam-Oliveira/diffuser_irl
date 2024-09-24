@@ -89,8 +89,9 @@ observation = env.reset()
 
 
 # dataset has 996000 4-step parts of trajectories. here we just select 10k first ones
-subset_indices=[i for i in range(10000)]
+subset_indices=[i for i in range(100000)]
 train_dataloader=DataLoader(dataset, batch_size=256, shuffle=False,num_workers=0,sampler=SubsetRandomSampler(subset_indices))
+#train_dataloader=DataLoader(dataset, batch_size=256, shuffle=False,num_workers=0)
 #print(len(train_dataloader))
 
 #expert_trajectories=expert_trajectories.to(torch.float32)
@@ -105,6 +106,7 @@ epochs=500
         
 loss = MMD_loss()
 
+#optimizer = torch.optim.Adam(value_function.model.parameters(), lr=2e-3, weight_decay=1e-4)
 optimizer = torch.optim.Adam(value_function.model.parameters(), lr=2e-3)
 
 
@@ -130,10 +132,12 @@ for e in range(epochs):
 
         predictions=torch.cat((sample_actions,sample_observations),dim=-1) 
 
-        loss_value=loss(torch.flatten(predictions,start_dim=1),torch.flatten(targets.trajectories,start_dim=1))
+        targets_loss=targets.trajectories.to(torch.device(args.device))
+
+        loss_value=loss(torch.flatten(predictions,start_dim=1),torch.flatten(targets_loss,start_dim=1))
 
         loss_value.backward() # gradients will be accumulated across different datapoints, and then backprop once we have gone through entire data
-        print(loss_value.detach().cpu().numpy())
+
         curr_loss+=loss_value.detach().cpu().numpy()
         terms+=1
 
@@ -143,13 +147,13 @@ for e in range(epochs):
     loss_array.append(curr_loss/terms)
 
     if e%10==0 or e==epochs-1:
-        torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MMD.pt'.format(f=e+1))
+        torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MMD_Gauss.pt'.format(f=e+1))
     plt.figure()
     plt.plot(range(len(loss_array)),loss_array)
     plt.xlabel('Epoch Number',fontsize=12)
     plt.ylabel('MMD Loss',fontsize=12)
     print(loss_array)
-    plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MMD.pdf',format="pdf", bbox_inches="tight")
+    plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MMD_Gauss.pdf',format="pdf", bbox_inches="tight")
     #plt.close()
 
 
@@ -160,7 +164,7 @@ for e in range(epochs):
 #}
 
 # NOTE: SAVE WITHOUT .model. so that the parameters have name model.fc.weight instead of fc.weight, and thus match what load() function in training.py expects! 
-torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MMD.pt'.format(f=epochs))
+torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MMD_Gauss.pt'.format(f=epochs))
 
 
 plt.figure()
@@ -168,7 +172,7 @@ plt.plot(range(len(loss_array)),loss_array)
 plt.xlabel('Epoch Number',fontsize=12)
 plt.ylabel('MMD Loss',fontsize=12)
 print(loss_array)
-plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MMD.pdf',format="pdf", bbox_inches="tight")
+plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MMD_Gauss.pdf',format="pdf", bbox_inches="tight")
 plt.show()
 
 

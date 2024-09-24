@@ -14,6 +14,7 @@ import diffuser.sampling as sampling
 from torch.utils.data import DataLoader
 from diffuser.models.helpers import MMD
 from torch.utils.data import SubsetRandomSampler
+from diffuser.models.helpers import MMD,MMD_loss
 
 class Parser(utils.Parser):
     dataset: str = 'halfcheetah-expert-v2'
@@ -29,7 +30,7 @@ args = Parser().parse_args('guided_learning')
 
 #---------------------------------- loading ----------------------------------#
 
-diffusion_experiment = utils.load_diffusion(args.logbase, 'halfcheetah-medium-replay-v2', args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
+diffusion_experiment = utils.load_diffusion(args.logbase, 'halfcheetah-medium-v2', args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
 
 value_experiment = utils.load_diffusion( # changed this function, instead of just being load_diffusion()
     args.loadbase, args.dataset, args.value_loadpath,
@@ -78,6 +79,13 @@ policy = policy_config()
 env=dataset.env
 observation = env.reset()
 
+#if args.conditional:
+#print('Resetting target')
+#env.set_target()
+
+
+# Load expert trajectories
+
 
 
 # dataset has 996000 4-step parts of trajectories. here we just select 10k first ones
@@ -91,10 +99,12 @@ train_dataloader=DataLoader(dataset, batch_size=256, shuffle=False,num_workers=0
 
 #print(expert_trajectories.shape[0])
 epochs=500
+#n_samples_per_epoch=expert_trajectories.shape[0]
+#numb_exp_trajectories=len(expert_trajectories)
 
 
         
-loss = torch.nn.MSELoss()
+loss = MMD_loss().to(args.device)
 
 optimizer = torch.optim.Adam(value_function.model.parameters(), lr=2e-3)
 
@@ -123,9 +133,12 @@ for e in range(epochs):
         
         targets_loss=targets.trajectories.to(torch.device(args.device))
 
-        loss_value=loss(torch.flatten(predictions,start_dim=1),torch.flatten(targets_loss,start_dim=1))
+
+
+        loss_value=loss(torch.flatten(predictions,start_dim=1),torch.flatten(targets_loss,start_dim=1),'matern')
 
         loss_value.backward() # gradients will be accumulated across different datapoints, and then backprop once we have gone through entire data
+
         curr_loss+=loss_value.detach().cpu().numpy()
         terms+=1
 
@@ -135,13 +148,13 @@ for e in range(epochs):
     loss_array.append(curr_loss/terms)
 
     if e%10==0 or e==epochs-1:
-        torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MSE.pt'.format(f=e+1))
+        torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MMD_Matern.pt'.format(f=e+1))
     plt.figure()
     plt.plot(range(len(loss_array)),loss_array)
     plt.xlabel('Epoch Number',fontsize=12)
-    plt.ylabel('MSE Loss',fontsize=12)
+    plt.ylabel('MMD Loss',fontsize=12)
     print(loss_array)
-    plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MSE.pdf',format="pdf", bbox_inches="tight")
+    plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MMD_Matern.pdf',format="pdf", bbox_inches="tight")
     #plt.close()
 
 
@@ -152,15 +165,15 @@ for e in range(epochs):
 #}
 
 # NOTE: SAVE WITHOUT .model. so that the parameters have name model.fc.weight instead of fc.weight, and thus match what load() function in training.py expects! 
-torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MSE.pt'.format(f=epochs))
+torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}_MMD_Matern.pt'.format(f=epochs))
 
 
 plt.figure()
 plt.plot(range(len(loss_array)),loss_array)
 plt.xlabel('Epoch Number',fontsize=12)
-plt.ylabel('MSE Loss',fontsize=12)
+plt.ylabel('MMD Loss',fontsize=12)
 print(loss_array)
-plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MSE.pdf',format="pdf", bbox_inches="tight")
+plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_MMD_Matern.pdf',format="pdf", bbox_inches="tight")
 plt.show()
 
 

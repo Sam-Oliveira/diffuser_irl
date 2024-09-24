@@ -150,8 +150,8 @@ class GaussianNormalizer(Normalizer):
         return (x - self.means) / self.stds
 
     def unnormalize(self, x):
-        stds=torch.from_numpy(self.stds).to(DEVICE)
-        means=torch.from_numpy(self.means).to(DEVICE)
+        stds=torch.from_numpy(self.stds).to(x.device)
+        means=torch.from_numpy(self.means).to(x.device)
         return x * stds + means
 
 

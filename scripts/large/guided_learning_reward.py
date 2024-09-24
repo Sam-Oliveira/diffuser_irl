@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 from diffuser.models.helpers import MMD
 
 class Parser(utils.Parser):
-    dataset: str = 'maze2d-umaze-v1'
+    dataset: str = 'maze2d-large-v1'
     config: str = 'config.maze2d'
 
 #---------------------------------- setup ----------------------------------#

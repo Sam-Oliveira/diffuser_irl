@@ -163,7 +163,6 @@ base = {
 
         'verbose': True,
         'suffix': '0',
-        'device':'cuda'
     },
 
     'guided_plan': {
@@ -221,7 +220,7 @@ base = {
         'n_guide_steps': 2,
         'scale': 0.1,
         't_stopgrad': 2,
-        'scale_grad_by_std': True,
+        'scale_grad_by_std': False,
 
         ## serialization
         'loadbase': None,
@@ -328,12 +327,12 @@ halfcheetah_medium_replay_v2 = halfcheetah_medium_v2 = halfcheetah_medium_expert
     'guided_learning':{
         'horizon': 4,
         'scale': 0.001,
-        't_stopgrad': 4,
+        't_stopgrad': 0,
     },
     'guided_learnt_reward':{
         'horizon': 4,
         'scale': 0.001,
-        't_stopgrad': 4,
+        't_stopgrad': 0,
     },
 }
 

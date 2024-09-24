@@ -11,7 +11,7 @@ import diffuser.sampling as sampling
 
 
 class Parser(utils.Parser):
-    dataset: str = 'halfcheetah-medium-replay-v2'
+    dataset: str = 'halfcheetah-expert-v2'
     config: str = 'config.locomotion'
 
 #---------------------------------- setup ----------------------------------#

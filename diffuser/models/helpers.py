@@ -250,9 +250,14 @@ class MMD_loss(nn.Module):
 
     def matern_kernel(self, source, target,nu):
         total = torch.cat([source, target], dim=0)
+        #print(source.device)
+        #print(target.device)
         #print(total.shape)
-        covar_module=gpytorch.kernels.ScaleKernel(gpytorch.kernels.MaternKernel(nu=nu))
-        return covar_module(total).to_dense()
+        #covar_module=gpytorch.kernels.ScaleKernel(gpytorch.kernels.MaternKernel(nu=nu)).cuda()
+        covar_module=gpytorch.kernels.MaternKernel(nu=nu).cuda()
+        total=torch.nn.functional.normalize(total)
+        n=covar_module(total)
+        return n.to_dense()
 
 
     def forward(self, source, target,kernel='gaussian'):
@@ -277,14 +282,19 @@ class MMD_loss(nn.Module):
             #YX = kernels[batch_size:, :batch_size]
             #loss = torch.mean(XX + YY - XY -YX)
             #return loss
-            K=self.matern_kernel(source,target,0.5)
+            K=self.matern_kernel(source,target,1.5)
             N=source.shape[0]
             M=target.shape[0]
-            Kxx = K[:N,:N]
-            Kyy = K[N:,N:]
-            Kxy = K[:N,N:]
-            t1 = (1./(M*(M-1)))*torch.sum(Kxx - torch.diag(torch.diagonal(Kxx)))
-            t2 = (2./(M*N)) * torch.sum(Kxy)
-            t3 = (1./(N*(N-1)))* torch.sum(Kyy - torch.diag(torch.diagonal(Kyy)))
-            MMDsquared = (t1-t2+t3)
-            return MMDsquared
+            #Kxx = K[:N,:N]
+            #Kyy = K[N:,N:]
+            #Kxy = K[:N,N:]
+            #t1 = (1./(M*(M-1)))*torch.sum(Kxx - torch.diag(torch.diagonal(Kxx)))
+            #t2 = (2./(M*N)) * torch.sum(Kxy)
+            #t3 = (1./(N*(N-1)))* torch.sum(Kyy - torch.diag(torch.diagonal(Kyy)))
+            #MMDsquared = (t1-t2+t3)
+            #return MMDsquared
+            X_size=source.shape[0]
+            XX = torch.mean(K[:X_size, :X_size])
+            XY = torch.mean(K[:X_size, X_size:])
+            YY = torch.mean(K[X_size:, X_size:])
+            return XX - 2 * XY + YY

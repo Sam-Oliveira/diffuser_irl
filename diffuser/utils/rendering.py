@@ -379,6 +379,84 @@ class Maze2dRenderer(MazeRenderer):
         imageio.imsave(savepath, images)
         print(f'Saved {len(paths)} samples to: {savepath}')
 
+    def plot2img(fig, remove_margins=True):
+        # https://stackoverflow.com/a/35362787/2912349
+        # https://stackoverflow.com/a/54334430/2912349
+
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+        if remove_margins:
+            fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+
+        canvas = FigureCanvasAgg(fig)
+        canvas.draw()
+        img_as_string, (width, height) = canvas.print_to_buffer()
+        return np.fromstring(img_as_string, dtype='uint8').reshape((height, width, 4))
+
+    def _render_field(self, field, title, **kwargs):
+        plt.clf()
+        fig, ax = plt.subplots()
+        fig.set_size_inches(5, 5)
+        ax.imshow(self._background,
+                    extent=self._extent, alpha = 0.25, cmap=plt.cm.binary, vmin=0, vmax=1, zorder = 10)
+        ax.imshow(
+            field, 
+            cmap=plt.cm.viridis,
+            extent = self._extent, 
+            alpha = 1, zorder = 0, **kwargs
+        ) 
+
+        plt.axis('off')
+        #plt.title(title)
+        #img = plot2img(fig, remove_margins=self._remove_margins)
+
+        return img
+
+    def render_reward_heatmap(self, trajectories, preds, shape_factor = 1, samples_thresh = 0):
+        _, bx, _, by = MAZE_BOUNDS[self.env_name]
+        bounds = torch.tensor([bx, by])
+        shape_t = (bounds * shape_factor).int().reshape((1, 2))
+        shape = shape_t.flatten().tolist()
+
+        #horizon = trajectories.shape[1]
+        trajectories_flat = trajectories
+        preds_repeated = preds
+
+        #------
+        #breakpoint()
+        trajectories = trajectories_flat.numpy()
+        preds = preds_repeated.numpy()
+
+        #preds = scipy.stats.mstats.winsorize(preds, limits = (0.005, 0.995))
+
+        hist = np.histogram2d(
+            trajectories[:, 0] + 0.5, 
+            trajectories[:, 1] + 0.5, 
+            weights = preds,
+            bins = shape,
+            range = [[0, bx], [0, by]]
+        )
+
+        hist_counts = np.histogram2d(
+            trajectories[:, 0] + 0.5, 
+            trajectories[:, 1] + 0.5, 
+            bins = shape,
+            range = [[0, bx], [0, by]]
+        )
+
+        mask = hist_counts[0] >= samples_thresh
+
+        #counts_field = hist_counts[0] / trajectories.shape[0]
+        reward_field = hist[0] / np.maximum(hist_counts[0], 1)
+
+        reward_field *= mask
+        counts_field *= mask
+
+        img_reward = self._render_field(reward_field, title="Reward heatmap", vmin = 0, vmax = 1)
+        #img_counts = self._render_field(counts_field, title="Counts heatmap")
+
+        return img_reward, reward_field
+
     def render_reward(self, values, conditions=None, title=None):
         bounds = MAZE_BOUNDS[self.env_name]
 
