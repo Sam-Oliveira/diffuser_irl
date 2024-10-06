@@ -23,11 +23,9 @@ class GuidedPolicy:
     def __call__(self, conditions, batch_size=1, diff_conditions=False,verbose=True):
 
         conditions = {k: self.preprocess_fn(v) for k, v in conditions.items()}
-       # print(conditions)
         conditions = self._format_conditions(conditions, batch_size,diff_conditions)
-        #print(conditions)
-        ## run reverse diffusion process (I think it calls ValueDiffusion in diffuser/models/diffusion.py, but doesnt rly make sense cause that expects a t argument
-        # IT SEEMS THIS CALLS FIRST THE BASE DIFFUSION AND ONLY THEN THE VALUEDIFFUSION GETS CALLED SOMEHOW. theory simply based on printing messages, no idea what is actually happening
+
+        ## run reverse diffusion process 
         
         samples = self.diffusion_model(conditions, guide=self.guide, verbose=verbose, **self.sample_kwargs)
 
@@ -36,13 +34,11 @@ class GuidedPolicy:
         ## extract action [ batch_size x horizon x transition_dim ]
         actions = trajectories[:, :, :self.action_dim]
         actions = self.normalizer.unnormalize(actions, 'actions')
-        #actions.register_hook(lambda grad: print(grad))
         ## extract first action (of first element of batch i believe)
         action = actions[0, 0]
 
         normed_observations = trajectories[:, :, self.action_dim:]
         observations = self.normalizer.unnormalize(normed_observations, 'observations')
-        #observations.register_hook(lambda grad: print(grad))
         trajectories = Trajectories(actions, observations, samples.values)
         return action, trajectories
 

@@ -6,12 +6,11 @@ import pdb
 #----------------------------------- setup -----------------------------------#
 #-----------------------------------------------------------------------------#
 
-
 class Parser(utils.Parser):
-    dataset: str = 'maze2d-umaze-v1'
+    dataset: str = 'maze2d-umaze-1'
     config: str = 'config.maze2d'
 
-args = Parser().parse_args('init_values')
+args = Parser().parse_args('diffusion')
 
 
 #-----------------------------------------------------------------------------#
@@ -27,7 +26,6 @@ dataset_config = utils.Config(
     preprocess_fns=args.preprocess_fns,
     use_padding=args.use_padding,
     max_path_length=args.max_path_length,
-    discount=args.discount,
 )
 
 render_config = utils.Config(
@@ -42,6 +40,7 @@ renderer = render_config()
 observation_dim = dataset.observation_dim
 action_dim = dataset.action_dim
 
+
 #-----------------------------------------------------------------------------#
 #------------------------------ model & trainer ------------------------------#
 #-----------------------------------------------------------------------------#
@@ -52,6 +51,7 @@ model_config = utils.Config(
     horizon=args.horizon,
     transition_dim=observation_dim + action_dim,
     cond_dim=observation_dim,
+    dim_mults=args.dim_mults,
     device=args.device,
 )
 
@@ -63,6 +63,12 @@ diffusion_config = utils.Config(
     action_dim=action_dim,
     n_timesteps=args.n_diffusion_steps,
     loss_type=args.loss_type,
+    clip_denoised=args.clip_denoised,
+    predict_epsilon=args.predict_epsilon,
+    ## loss weighting
+    action_weight=args.action_weight,
+    loss_weights=args.loss_weights,
+    loss_discount=args.loss_discount,
     device=args.device,
 )
 
@@ -80,6 +86,7 @@ trainer_config = utils.Config(
     results_folder=args.savepath,
     bucket=args.bucket,
     n_reference=args.n_reference,
+    n_samples=args.n_samples,
 )
 
 #-----------------------------------------------------------------------------#
@@ -92,24 +99,27 @@ diffusion = diffusion_config(model)
 
 trainer = trainer_config(diffusion, dataset, renderer)
 
+
 #-----------------------------------------------------------------------------#
 #------------------------ test forward & backward pass -----------------------#
 #-----------------------------------------------------------------------------#
 
+utils.report_parameters(model)
+
 print('Testing forward...', end=' ', flush=True)
 batch = utils.batchify(dataset[0])
-
-# * unpacks arguments in batch
 loss, _ = diffusion.loss(*batch)
-
-# havent managed to make this work in my super simple network. it was working with random linear network
-# and then stopped, idk why, when I just did slicing of x coordinate
-#loss.backward()
+loss.backward()
 print('✓')
+
 
 #-----------------------------------------------------------------------------#
 #--------------------------------- main loop ---------------------------------#
 #-----------------------------------------------------------------------------#
 
-# Just save untrained model checkpoint
-trainer.save(0)
+n_epochs = int(args.n_train_steps // args.n_steps_per_epoch)
+#if __name__ == '__main__':
+for i in range(n_epochs):
+    print(f'Epoch {i} / {n_epochs} | {args.savepath}')
+    trainer.train(n_train_steps=args.n_steps_per_epoch)
+

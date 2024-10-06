@@ -61,13 +61,13 @@ base = {
         'renderer': 'utils.Maze2dRenderer',
 
         ## dataset
-        'loader': 'datasets.GoalDataset',    # I THINK I HAVE TO CHANGE THIS TO SEQUENCE_DATASET, THAT'S WHAT THEY HAVE FOR MAIN
+        'loader': 'datasets.GoalDataset',  
         'termination_penalty': None,
         'normalizer': 'LimitsNormalizer',
         'preprocess_fns': ['maze2d_set_terminals'],
         'clip_denoised': True,
         'use_padding': False,
-        'max_path_length': 40000, #changed this, as giovanni said he had changed it
+        'max_path_length': 40000, 
 
         ## serialization
         'logbase': 'logs',
@@ -95,8 +95,8 @@ base = {
     'plan': {
         'batch_size': 10,
         'device': 'cpu',
-        'seed':13, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
-        'env_seed':13, #seed for env
+        'seed':4, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
+        'env_seed':4, #seed for env
 
         ## diffusion model
         'horizon': 256,
@@ -104,14 +104,11 @@ base = {
         'normalizer': 'LimitsNormalizer',
 
         ## serialization
-        'vis_freq': 10, # What is this?? this gets used to decide when to print in plan_maze2d??
+        'vis_freq': 10, 
         'logbase': 'logs',
         'prefix': 'plans/release',
         'exp_name': watch(plan_args_to_watch),
         'suffix': '0',
-
-        # what does this do? I think it is for conditioning on certain observations (e.g. start/goal state)
-        # It isn't about conditional sampling (i.e. setting h I think)
         'conditional': False,
 
         ## loading
@@ -120,7 +117,7 @@ base = {
     },
 
     'init_values': {
-        'model': 'models.ValueFunction_4Layer_UMaze',
+        'model': 'models.TrueReward',
         'diffusion': 'models.ValueDiffusion',
         'horizon': 128,
         'n_diffusion_steps': 64,
@@ -133,18 +130,13 @@ base = {
         'preprocess_fns': ['maze2d_set_terminals'],
         'clip_denoised': True,
         'use_padding': False,
-        'max_path_length': 40000, #changed this, as giovanni said he had changed it
+        'max_path_length': 40000, 
 
         ## serialization
         'discount':0.995,
         'logbase': 'logs',
         'prefix': 'values/',
         'exp_name': watch(value_args_to_watch),
-
-        ## They use this in main branch, idk if i'll need them.
-        #'discount': 1,
-        #'normed': False,
-
         ## training
         'n_steps_per_epoch': 1000,
         'loss_type': 'value_l2',
@@ -168,22 +160,21 @@ base = {
         'policy': 'sampling.GuidedPolicy',
         'max_episode_length': 1000,
         'batch_size': 1,
-        'preprocess_fns': [], #think i might need the maze2d function from above. check what is does
+        'preprocess_fns': [],
         'device': 'cpu',
 
-        ## sample_kwargs (Idk what these do)
-        'n_guide_steps': 2, #the amount of steps actually taken in the environment based on each plan? just about how many steps of opt process we take in direction of guide gradient I think
+        'n_guide_steps': 2,
         'scale': 0.1,
-        't_stopgrad': 2, #no idea what this is supposed to do mathematically
+        't_stopgrad': 2, 
         'stop_grad':False,
         'scale_grad_by_std': True,
         'conditional': False,
         'seed': 50, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
-        'env_seed':15, #seed for environment
+        'env_seed':12, #seed for environment
 
         ## serialization
         'loadbase': None,
-        'vis_freq': 10, # i think it's how often it renders
+        'vis_freq': 10, # how often it renders
         'logbase': 'logs',
         'prefix': 'plans/guided',
         'exp_name': watch(plan_args_to_watch),
@@ -215,15 +206,14 @@ base = {
         'device': 'cpu',
 
         'termination_penalty': None,
-        'preprocess_fns': [], #I think separates dataset into the different episodes based on timeouts
+        'preprocess_fns': [], 
         'clip_denoised': True,
         'use_padding': False,
-        'max_path_length': 40000, #changed this, as giovanni said he had changed it
+        'max_path_length': 40000, 
 
-        ## sample_kwargs (Idk what these do)
-        'n_guide_steps': 2, #the amount of steps actually taken in the environment based on each plan? just about how many steps of opt process we take in direction of guide gradient I think
+        'n_guide_steps': 2, 
         'scale': 0.1,
-        't_stopgrad': 2, #no idea what this is supposed to do mathematically
+        't_stopgrad': 2, 
         'stop_grad':False,
         'scale_grad_by_std': True,
         'conditional': False,
@@ -232,7 +222,7 @@ base = {
 
         ## serialization
         'loadbase': None,
-        'vis_freq': 10, # i think it's how often it renders
+        'vis_freq': 10, # how often it renders
         'logbase': 'logs',
         'prefix': 'plans/guided',
         'exp_name': watch(learn_reward_args_to_watch),
@@ -261,22 +251,21 @@ base = {
         'policy': 'sampling.GuidedPolicy',
         'max_episode_length': 1000,
         'batch_size':1,
-        'preprocess_fns': [], #think i might need the maze2d function from above. check what is does
+        'preprocess_fns': [],
         'device': 'cpu',
 
-        ## sample_kwargs (Idk what these do)
-        'n_guide_steps': 2, #the amount of steps actually taken in the environment based on each plan? just about how many steps of opt process we take in direction of guide gradient I think
+        'n_guide_steps': 2,
         'scale': 0.1,
-        't_stopgrad': 2, #no idea what this is supposed to do mathematically
+        't_stopgrad': 2,
         'stop_grad':False,
         'scale_grad_by_std': True,
         'conditional': False,
-        'seed': 40, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
-        'env_seed':13, #seed for environment
+        'seed': 60, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
+        'env_seed':15, #seed for environment
 
         ## serialization
         'loadbase': None,
-        'vis_freq': 10, # i think it's how often it renders
+        'vis_freq': 10, # how often it renders
         'logbase': 'logs',
         'prefix': 'plans/guided_learnt_reward',
         'exp_name': watch(plan_args_to_watch),
@@ -307,15 +296,14 @@ base = {
         'device': 'cpu',
 
         'termination_penalty': None,
-        'preprocess_fns': [], #I think separates dataset into the different episodes based on timeouts
+        'preprocess_fns': [], 
         'clip_denoised': True,
         'use_padding': False,
-        'max_path_length': 40000, #changed this, as giovanni said he had changed it
+        'max_path_length': 40000, 
 
-        ## sample_kwargs (Idk what these do)
-        'n_guide_steps': 2, #the amount of steps actually taken in the environment based on each plan? just about how many steps of opt process we take in direction of guide gradient I think
+        'n_guide_steps': 2,
         'scale': 0.1,
-        't_stopgrad': 2, #no idea what this is supposed to do mathematically
+        't_stopgrad': 2, 
         'stop_grad':False,
         'scale_grad_by_std': True,
         'conditional': False,
@@ -324,7 +312,7 @@ base = {
 
         ## serialization
         'loadbase': None,
-        'vis_freq': 10, # i think it's how often it renders
+        'vis_freq': 10, # how often it renders
         'logbase': 'logs',
         'prefix': 'plans/guided',
         'exp_name': watch(learn_reward_args_to_watch),

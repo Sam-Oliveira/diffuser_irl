@@ -8,8 +8,15 @@ import pdb
 
 
 class Parser(utils.Parser):
-    dataset: str = 'halfcheetah-medium-replay-v2'
+    dataset: str = 'halfcheetah-expert-v2'
     config: str = 'config.locomotion'
+
+
+"""
+This script must be run before learning a reward model. It initiates the network's weights and creates a .pt file
+necessary for reward model training
+"""
+
 
 args = Parser().parse_args('init_values')
 
@@ -103,14 +110,7 @@ batch = utils.batchify(dataset[0])
 # * unpacks arguments in batch
 loss, _ = diffusion.loss(*batch)
 
-# havent managed to make this work in my super simple network. it was working with random linear network
-# and then stopped, idk why, when I just did slicing of x coordinate
-#loss.backward()
 print('✓')
-
-#-----------------------------------------------------------------------------#
-#--------------------------------- main loop ---------------------------------#
-#-----------------------------------------------------------------------------#
 
 # Just save untrained model checkpoint
 trainer.save(0)

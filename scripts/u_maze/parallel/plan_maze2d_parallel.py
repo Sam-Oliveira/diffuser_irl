@@ -14,11 +14,13 @@ class Parser(utils.Parser):
     dataset: str = 'maze2d-umaze-v1'
     config: str = 'config.maze2d'
 
+"""
+This script outputs multiple trajectories based on unguided diffusion with impainting of first and last state.
+"""
+
 #---------------------------------- setup ----------------------------------#
 
 args = Parser().parse_args('plan')
-
-# logger = utils.Logger(args)
 
 #---------------------------------- loading ----------------------------------#
 
@@ -32,7 +34,7 @@ policy = Policy(diffusion, dataset.normalizer)
 
 #---------------------------------- main loop ----------------------------------#
 env=dataset.env
-num_envs=20
+num_envs=10
 
 # create multiple envs
 envs=gym.vector.SyncVectorEnv([
@@ -47,7 +49,12 @@ start_points=torch.from_numpy(np.asarray([
     [1,3,0,0],
     [2,3,0,0],
     [3,1.5,0,0],
-    [3,3,0,0]
+    [3,3,0,0],
+    [4,3,0,0],
+    [7,7,0,0],
+    [9,1,0,0],
+    [9,3,0,0],
+    [2,6,0,0]
 ]))
 
 
@@ -55,11 +62,11 @@ start_points=torch.from_numpy(np.asarray([
 envs.observations=torch.repeat_interleave(start_points,int(num_envs/start_points.shape[0]),0).detach().cpu().numpy()
 
 target=np.asarray(
-    [3.2,3.2]
+    [7,9]
 )
 
 target_with_velocity=torch.from_numpy(np.asarray([
-    [3.2,3.2,0,0]
+    [7,9,0,0]
 ]))
 
 #print(envs.__dict__)
@@ -73,7 +80,6 @@ cond = {
 }
 
 ## observations for rendering
-#rollout = [envs.observations.copy()] #1st observation I think
 rollout=[]
 
 total_reward = 0
@@ -121,49 +127,21 @@ for t in range(max_steps):
 
     trajectories.append(np.concatenate((action,envs.observations),axis=-1))
     learnt_trajectories[:,t,:]=(torch.cat((torch.from_numpy(action),torch.from_numpy(envs.observations)),axis=-1))
-    # pdb.set_trace()
-    ####
 
-    # else:
-    #     actions = actions[1:]
-    #     if len(actions) > 1:
-    #         action = actions[0]
-    #     else:
-    #         # action = np.zeros(2)
-    #         action = -state[2:]
-    #         pdb.set_trace()
-
-
-    # terminal state is given (inpainting)
-    #print(action.shape)
     next_observation, reward, terminal, _ = envs.step(action)
-    #print(reward.shape)
     total_reward += reward
 
-
-
-    # logger.log(score=score, step=t)
     if t % args.vis_freq == 0 or terminal.any():
         fullpath = join(args.savepath, f'{t}.png')
 
         if t == 0: renderer.composite(fullpath, samples.observations.detach().cpu().numpy(), ncol=int(num_envs/start_points.shape[0]))
 
-
-        # renderer.render_plan(join(args.savepath, f'{t}_plan.mp4'), samples.actions, samples.observations, state)
-
         ## save rollout thus far
         renderer.composite(join(args.savepath, 'rollout.png'),np.stack(rollout,axis=1), ncol=int(num_envs/start_points.shape[0]))
-
-        # renderer.render_rollout(join(args.savepath, f'rollout.mp4'), rollout, fps=80)
-
-        # logger.video(rollout=join(args.savepath, f'rollout.mp4'), plan=join(args.savepath, f'{t}_plan.mp4'), step=t)
 
     if terminal.any():
         break
 
-    #observation = next_observation
-
-# logger.finish(t, env.max_episode_steps, score=score, value=0)
 
 ## save result as a json file
 json_path = join(args.savepath, 'rollout'+str(args.seed)+'.json')

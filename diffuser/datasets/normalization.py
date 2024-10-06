@@ -172,11 +172,19 @@ class LimitsNormalizer(Normalizer):
             # print(f'[ datasets/mujoco ] Warning: sample out of range | ({x.min():.4f}, {x.max():.4f})')
             #x = np.clip(x, -1, 1)
             x = torch.clamp(x,-1,1) # added this instead of line above because it started only throwing random error midway through guided with learnt reward locally, saying it couldnt turn a tensor with grad into numpy
-
-        ## [ -1, 1 ] --> [ 0, 1 ]
+            ## [ -1, 1 ] --> [ 0, 1 ]
         x = (x + 1) / 2.
 
         return x * (torch.from_numpy(self.maxs) - torch.from_numpy(self.mins)) + torch.from_numpy(self.mins)
+        #ADDED FOR NOTEBOOK (THE ELSE STATEMENT). also for that case the two lines above are inside if
+        """
+        else:
+            x = np.clip(x, -1, 1)
+            x = (x + 1) / 2.
+
+            return x * (self.maxs - self.mins) + self.mins
+        """
+
 
 class SafeLimitsNormalizer(LimitsNormalizer):
     '''

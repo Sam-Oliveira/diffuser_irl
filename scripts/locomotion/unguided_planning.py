@@ -19,6 +19,12 @@ class Parser(utils.Parser):
     dataset: str = 'halfcheetah-expert-v2'
     config: str = 'config.locomotion'
 
+
+"""
+This script outputs a trajectory based on unguided planning with the Diffuser.
+"""
+
+
 #---------------------------------- setup ----------------------------------#
 
 args = Parser().parse_args('unguided_plan')
@@ -59,27 +65,19 @@ total_reward = 0
 
 max_steps=env.max_episode_steps
 trajectories=[]
-#max_steps=128
-#max_steps=200
+
 for t in range(max_steps):
 
     if t % 10 == 0: print(args.savepath, flush=True)
 
-
     ## save state for rendering only
     state = env.state_vector().copy()
-
-    ## IMPAINTING
-    #target = env._target 
-    #conditions = {0: observation,diffusion.horizon - 1: np.array([*target, 0, 0])}
-
 
     ## format current observation for conditioning (NO IMPAINTING)
     conditions = {0: observation}
     
     #i think basically we take 1 step, and plan again every time! (in rollout image. in plan, it's just the plan at first step)
     action, samples = policy(conditions, batch_size=args.batch_size)
-
 
     trajectories.append(np.concatenate((action.detach().cpu().numpy(),observation)))
 

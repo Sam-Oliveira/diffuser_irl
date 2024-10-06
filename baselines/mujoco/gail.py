@@ -35,11 +35,8 @@ class Parser(utils.Parser):
 
 args = Parser().parse_args('guided_learning')
 
-# NOTE! NEED TO INSTALL GYMNASIUM-ROBOTICS FOR THE UMAZE ENV!
-
 rng = np.random.default_rng(13)
 seed=13
-#print(gym.envs.registry.keys())
 
 env = make_vec_env(
     'HalfCheetah-v4',
@@ -70,7 +67,7 @@ learner = PPO(
     batch_size=64,
     ent_coef=0.0,
     learning_rate=0.0004,
-    gamma=0.95,
+    gamma=0.99,
     n_epochs=5,
     seed=seed,
 )

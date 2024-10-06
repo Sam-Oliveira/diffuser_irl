@@ -30,7 +30,7 @@ def run_diffusion(model, dataset, obs, n_samples=1, device='cpu', **diffusion_kw
     0: to_torch(obs, device=device)
   }
 
-  samples, diffusion = model.conditional_sample(conditions,
+  samples,_,diffusion = model.conditional_sample(conditions,
         return_diffusion=True, verbose=False, **diffusion_kwargs)
 
   ## [ n_samples x (n_diffusion_steps + 1) x horizon x (action_dim + observation_dim)]
@@ -39,7 +39,6 @@ def run_diffusion(model, dataset, obs, n_samples=1, device='cpu', **diffusion_kw
   ## extract observations
   ## [ n_samples x (n_diffusion_steps + 1) x horizon x observation_dim ]
   normed_observations = diffusion[:, :, :, dataset.action_dim:]
-
   ## unnormalize observation samples from model
   observations = dataset.normalizer.unnormalize(normed_observations, 'observations')
 
@@ -50,7 +49,7 @@ def run_diffusion(model, dataset, obs, n_samples=1, device='cpu', **diffusion_kw
   return observations
 
 
-def show_diffusion(renderer, observations, n_repeat=100, substep=1, filename='diffusion.mp4', savebase='/content/videos'):
+def show_diffusion(renderer, observations, n_repeat=100, substep=1, filename='diffusion.mp4', savebase='content/videos'):
     '''
         observations : [ n_diffusion_steps x batch_size x horizon x observation_dim ]
     '''
@@ -63,7 +62,7 @@ def show_diffusion(renderer, observations, n_repeat=100, substep=1, filename='di
     for t in tqdm(range(len(subsampled))):
         observation = subsampled[t]
 
-        img = renderer.composite(None, observation)
+        img = renderer.composite(None, observation,ncol=1)
         images.append(img)
     images = np.stack(images, axis=0)
 
@@ -77,7 +76,7 @@ def show_diffusion(renderer, observations, n_repeat=100, substep=1, filename='di
     show_video(savepath)
 
 
-def show_sample(renderer, observations, filename='sample.mp4', savebase='/content/videos'):
+def show_sample(renderer, observations, filename='sample.mp4', savebase='content/videos'):
     '''
         observations : [ batch_size x horizon x observation_dim ]
     '''
@@ -88,7 +87,7 @@ def show_sample(renderer, observations, filename='sample.mp4', savebase='/conten
     images = []
     for rollout in observations:
         ## [ horizon x height x width x channels ]
-        img = renderer._renders(rollout, partial=True)
+        img = renderer.renders(rollout)
         images.append(img)
 
     ## [ horizon x height x (batch_size * width) x channels ]

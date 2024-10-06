@@ -1,6 +1,6 @@
-# Planning with Diffusion &nbsp;&nbsp; [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1YajKhu-CUIGBJeQPehjVPJcK_b38a8Nc?usp=sharing)
+# Inverse Reinforcement Learning using Diffusion models in Trajectory Space
 
-
+MSc Thesis on using the [Diffuser](https://arxiv.org/abs/2205.09991) for Inverse Reinforcement Learning.
 Training and visualizing of diffusion models from [Planning with Diffusion for Flexible Behavior Synthesis](https://diffusion-planning.github.io/).
 This branch has the Maze2D experiments and will be merged into main shortly.
 

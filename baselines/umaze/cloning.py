@@ -19,7 +19,7 @@ from imitation.data.rollout import rollout as roll_traject
 from gymnasium import spaces
 from collections import OrderedDict
 
-# NOTE! NEED TO INSTALL GYMNASIUM-ROBOTICS FOR THE UMAZE ENV!
+# NOTE: NEED TO HAVE GYMNASIUM-ROBOTICS INSTALLED FOR THE UMAZE ENV!
 
 from diffuser.guides.policies import Policy
 import diffuser.datasets as datasets
@@ -36,7 +36,6 @@ args = Parser().parse_args('guided_learning_mmd')
 
 
 rng = np.random.default_rng(13)
-#print(gym.envs.registry.keys())
 
 env_imit = make_vec_env(
     'PointMaze_UMaze-v3',
@@ -45,61 +44,19 @@ env_imit = make_vec_env(
     post_wrappers=[lambda env, _: RolloutInfoWrapper(env)],  # for computing rollouts
 )
 
-"""
-env = make_vec_env(
-    "seals:seals/CartPole-v0",
-    rng=rng,
-)
-"""
-#print(env.get_attr('observation'))
-#env.set_attr('observation',np.asarray([1,1]),np.asarray([0,0]))
-#obs=env.reset(options={'reset_cell':np.asarray([1,1])})
-
 object_methods = [method_name for method_name in dir(env_imit)
                   if callable(getattr(env_imit, method_name))]
 env_imit.reset()
-print(env_imit.unwrapped.__dict__)
 
-# Set initial state of environment
-#env.unwrapped.buf_obs['observation']=np.asarray([[1,1,0,0]])
-
-# this changes type of observation space in pointmaze env. Idk if this doesnt alter my results.
-# because the true observation space of the environment is a dictionary with 3 keys as shown in https://robotics.farama.org/envs/maze/point_maze/
-# no idea what happens when i dont specify the other two, as I indirectly do here
+# Changing environment specification so it matches previous version of environment that we use in Diffuser codebase
 env_imit.unwrapped.observation_space=Box(-np.inf, np.inf, (4,), np.float64)
-#env.unwrapped.buf_obs={'observation':np.asarray([[1,1,0,0]])}
 od=OrderedDict()
 od['observation']=env_imit.unwrapped.buf_obs['observation']
 env_imit.unwrapped.buf_obs=od
 env_imit.unwrapped.keys=['observation'] #changed this from ['observation'] to None when I added line 62, but everything worked before changing this
 
-# NOTE: ADDED THIS AFTER ALL OF BC WAS WORKING. JUST CAUSE I DONT THINK BUF OBS SHOULD HAVE TO BE A DICT IF OBS SPACE IS A BOX AND NOT SPACE.DICT
-#env_imit.unwrapped.buf_obs=env_imit.unwrapped.buf_obs['observation']
 
-"""
-env = make_vec_env(
-    "seals:seals/CartPole-v0",
-    rng=rng,
-    n_envs=1,
-    post_wrappers=[lambda env, _: RolloutInfoWrapper(env)],  # for computing rollouts
-)
-expert = load_policy(
-    "ppo-huggingface",
-    organization="HumanCompatibleAI",
-    env_name="seals-CartPole-v0",
-    venv=env,
-)
-
-# can comment this out and simply get my expert trajectories to be this "rollouts" variable
-
-rollouts = rollout.rollout(
-    expert,
-    env,
-    rollout.make_sample_until(min_timesteps=300, min_episodes=1), 
-    rng=rng,
-)
-"""
-
+# Loading expert trajectories
 start_points=[13,14,15]
 rollouts_per_start_point=3
 observation_dim=4
@@ -121,8 +78,10 @@ for trajectory_index in range(expert_trajectories.shape[0]):
     rollouts.append(Trajectory(obs=np.asarray(expert_trajectories[trajectory_index,:,2:]),acts=np.asarray(expert_trajectories[trajectory_index,:-1,:2]),infos=None,terminal=True))
 
 
+# Flatten transitions (specific for BC Learning)
 transitions = rollout.flatten_trajectories(rollouts)
 
+# Define trainer
 bc_trainer = bc.BC(
     observation_space=env_imit.observation_space,
     action_space=env_imit.action_space,
@@ -132,28 +91,16 @@ bc_trainer = bc.BC(
 
 
 bc_trainer.train(n_epochs=50)
-# instead of using evaluate, basically have code that for a certain start point, takes one step in env each time according to bc_trainer.policy (this is like a neural network)
-# and then just have that code repeat that across diff start points
-#reward, _ = evaluate_policy(bc_trainer.policy, env, 10)
-#print("Reward:", reward)
 
-#env.unwrapped.buf_obs['observation']=np.asarray([[1,1,0,0]])
-#env.observation_space=spaces.Dict({'observation': Box(-np.inf, np.inf,(4,),np.float64)})
 policy=rollout.policy_to_callable(bc_trainer.policy,env_imit)
-print(policy(observations=np.asarray([-0.3,-0.4,0.34,0.32]),states=None,episode_starts=None)[0])
 
+# Save 
 torch.save(bc_trainer.policy,'logs/'+args.dataset+'/learnt_behaviour/BC/weights.pt')
-#print(env.unwrapped.observation_space)
-#print(env.observation_space)
-#traject=roll_traject(bc_trainer.policy,env,rollout.make_sample_until(min_timesteps=300, min_episodes=1),rng=rng)
 
-#print(traject)
+# TEST THE LEARNT BC ALGORITHM ON U-MAZE: we generate trajectories from specified start points based on the learnt policy,
+# and then use the true reward model to evaluate reward of these trajectories (note the true reward model "weights" must be loaded)
 
-
-
-# TEST THE LEARNT BC ALGORITHM ON U-MAZE
-
-# For U-Maze
+# Create test start points for U-Maze
 start_points=torch.from_numpy(np.asarray([
     [1,1.5,0,0],
     [1,3,0,0],
@@ -162,10 +109,11 @@ start_points=torch.from_numpy(np.asarray([
     [3,3,0,0]
 ]))
 
-trajectories_per_start_point=5
+trajectories_per_start_point=20
 learnt_trajectories=torch.empty((0,128,observation_dim+action_dim))
 
 
+# Typical Diffuser set-up code
 value_experiment = utils.load_diffusion(
     args.loadbase, args.dataset, args.value_loadpath,
     epoch=args.value_epoch, seed=args.env_seed,
@@ -181,12 +129,6 @@ renderer = value_experiment.renderer
 guide_config = utils.Config(args.guide, model=value_function, verbose=False)
 guide = guide_config()
 
-
-# this was previously in unguided planning, but I dont think this works like that anymore
-#policy = Policy(diffusion, dataset.normalizer)
-
-
-## policies are wrappers around an unconditional diffusion model and a value guide
 policy_config = utils.Config(
     args.policy,
     guide=guide,
@@ -194,7 +136,6 @@ policy_config = utils.Config(
     diffusion_model=diffusion,
     normalizer=dataset.normalizer,
     preprocess_fns=args.preprocess_fns,
-    ## sampling kwargs (idk what these mean)
     sample_fn=sampling.n_step_guided_p_sample,
     n_guide_steps=args.n_guide_steps,
     t_stopgrad=args.t_stopgrad,
@@ -212,30 +153,16 @@ for i,start_point in enumerate(start_points):
         current_traject=torch.empty((0,observation_dim+action_dim))
         obs=start_point.numpy()
         observation=env.set_state(np.asarray(start_point[:2]),np.asarray(start_point[2:]))
-        #observation=np.asarray([7,1,0,0])  
         for step in range(128):
             
             # Pick action based on learnt agent
             action=policy(observations=obs,states=None,episode_starts=None)[0]
-            ## execute action in environment
-            #print(obs)
-            #print(observation)
-            #print(action)
-            #action=[0,0]
-            # TRY WITH INITIAL ENV U DEFINED, NOT ENV FROM THE DIFFUSER CODE (WHICH IS WHAT IS BEING CALLED BELOW)
             next_observation, reward, terminal, _ = env.step(action)
-            #print(next_observation)
-            #print(policy_diff.normalizer.unnormalize(torch.from_numpy(next_observation),'observations'))
-
-            #print(current_traject.shape)
-            #print(torch.from_numpy(np.concatenate((obs,action))).shape)
             current_traject=torch.cat((current_traject,torch.from_numpy(np.concatenate((action,obs))).unsqueeze(0)))
             obs=next_observation
-
-
         learnt_trajectories=torch.cat((learnt_trajectories, current_traject.unsqueeze(0)))
 
-print(learnt_trajectories.shape)
+# Save generated trajectories
 torch.save(learnt_trajectories,'logs/'+args.dataset+'/learnt_behaviour/BC/trajectories.pt')
 
 # tells reward model to analyse these trajectories as being trajectories at diffusion step=0 (this variable should be called diffusion_step instead of time)
@@ -243,7 +170,6 @@ time=torch.zeros((learnt_trajectories.shape[0]),dtype=torch.float)
 learnt_trajectories=learnt_trajectories.to(torch.float)
 
 # NOTE THAT THE VALUE FUNCTION NEEDS TO BE THE TRUE REWARD, NOT A REWARD MODEL USED FOR LEARNING
-
-# NEED TO MAKE SURE VALUE FUNCTION IN FOLDER IS THE TRUE REWARD MODEL AND NOT SMTHG WE LEARNT
-print(value_function(learnt_trajectories,{'0':learnt_trajectories[:,0,:]},time))
-
+values=value_function(learnt_trajectories,{'0':learnt_trajectories[:,0,:]},time)
+print(values)
+print("mean reward after training:", torch.mean(values),u"\u00B1",torch.std(values))

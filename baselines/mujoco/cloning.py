@@ -20,8 +20,6 @@ from gymnasium import spaces
 from collections import OrderedDict
 import diffuser.utils as utils
 
-# NOTE! NEED TO INSTALL GYMNASIUM-ROBOTICS FOR THE UMAZE ENV!
-
 class Parser(utils.Parser):
     dataset: str = 'halfcheetah-expert-v2'
     config: str = 'config.locomotion'
@@ -32,8 +30,8 @@ args = Parser().parse_args('guided_learning')
 
 
 rng = np.random.default_rng(13)
-#print(gym.envs.registry.keys())
 seed=13
+
 env = make_vec_env(
     'HalfCheetah-v4',
     rng=rng,
@@ -70,7 +68,7 @@ bc_trainer = bc.BC(
 learner_rewards_before_training, _ = evaluate_policy(
     bc_trainer.policy, env, 100, return_episode_rewards=True,)
 
-bc_trainer.train(n_epochs=50)
+bc_trainer.train(n_epochs=30)
 
 learner_rewards_after_training, _ = evaluate_policy(
     bc_trainer.policy, env, 100, return_episode_rewards=True,
@@ -79,4 +77,5 @@ learner_rewards_after_training, _ = evaluate_policy(
 print("mean reward before training:", np.mean(learner_rewards_before_training),u"\u00B1",np.std(learner_rewards_before_training))
 print("mean reward after training:", np.mean(learner_rewards_after_training),u"\u00B1",np.std(learner_rewards_after_training))
 
-
+policy=rollout.policy_to_callable(bc_trainer.policy,env)
+torch.save(bc_trainer.policy,'logs/'+args.dataset+'/learnt_behaviour/BC/weights.pt')

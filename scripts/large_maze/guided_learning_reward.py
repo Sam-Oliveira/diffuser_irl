@@ -15,8 +15,13 @@ from torch.utils.data import DataLoader
 from diffuser.models.helpers import MMD
 
 class Parser(utils.Parser):
-    dataset: str = 'maze2d-umaze-v1'
+    dataset: str = 'maze2d-large-v1'
     config: str = 'config.maze2d'
+
+"""
+This script learns a reward model from some expert trajectories, using MSE Loss.
+"""
+
 
 #---------------------------------- setup ----------------------------------#
 
@@ -83,24 +88,18 @@ print('Resetting target')
 env.set_target()
 
 
-# Dataset size depends on the step_size
+# Load expert trajectories
 step_size=10
-start_points=[13,14,15]
-#DEPENDING ON ENVIRONMENT (numb of steps below - 200 or 300 )
-expert_trajectories=torch.empty((0,300,dataset.observation_dim+dataset.action_dim),device=args.device)
-for start in start_points:  
-
-    #DEPENDING ON ENVIRONMENT
-    path_to_json = 'logs/maze2d-umaze-v1/plans/guided_H128_T64_d0.995_LimitsNormalizer_b1_stop-gradFalse_condFalse_env_seed{seed}/0/'.format(seed=start)
-    json_files = [pos_json for pos_json in os.listdir(path_to_json) if pos_json.startswith('rollout') and pos_json.endswith('.json')]
-    for file in range(len(json_files)):
-        with open(path_to_json+json_files[file]) as json_data:
-            data = json.load(json_data)
-        data_array=np.array(data['rollout'])
-        file_torch=torch.from_numpy(data_array).to(device=args.device)
-        expert_trajectories=torch.cat((expert_trajectories, file_torch.unsqueeze(0)))
-
-# Expert trajectories tensor is numb_trajectories x steps of rollout x state and action dim (=6)
+expert_trajectories=torch.empty((0,380,dataset.observation_dim+dataset.action_dim))
+lists=[[0,1,3],[4],[5],[7],[2,6]]
+for i,list in enumerate(lists):
+    exp_traj=torch.load('logs/maze2d-large-v1/exp_traj/'+"expert_"+str(i+1)+".pt")
+    exp_traj=exp_traj[list,:380,:]
+    expert_trajectories=torch.cat((expert_trajectories, exp_traj))
+    print('IT')
+    print(exp_traj.shape)
+print('HERE')
+print(expert_trajectories.shape)
 
 # Now basically make it so each datapoint isnt an entire trajectory, but each "step_size"-length section of a trajectory
 """

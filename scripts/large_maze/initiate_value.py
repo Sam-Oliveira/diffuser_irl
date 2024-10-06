@@ -6,17 +6,17 @@ import pdb
 #----------------------------------- setup -----------------------------------#
 #-----------------------------------------------------------------------------#
 
+
 class Parser(utils.Parser):
-    dataset: str = 'halfcheetah-medium-replay-v2'
-    config: str = 'config.locomotion'
-
+    dataset: str = 'maze2d-large-v1'
+    config: str = 'config.maze2d'
 
 """
-This script trains a base Diffuser on a chosen mujoco locomotion dataset.
+This script needs to be run before learning a reward model. It simply initiates the network with random weights.
+After running this, any of the "guided_learning_X.py" can be run.
 """
 
-
-args = Parser().parse_args('diffusion')
+args = Parser().parse_args('init_values')
 
 
 #-----------------------------------------------------------------------------#
@@ -32,6 +32,7 @@ dataset_config = utils.Config(
     preprocess_fns=args.preprocess_fns,
     use_padding=args.use_padding,
     max_path_length=args.max_path_length,
+    discount=args.discount,
 )
 
 render_config = utils.Config(
@@ -46,7 +47,6 @@ renderer = render_config()
 observation_dim = dataset.observation_dim
 action_dim = dataset.action_dim
 
-
 #-----------------------------------------------------------------------------#
 #------------------------------ model & trainer ------------------------------#
 #-----------------------------------------------------------------------------#
@@ -57,7 +57,6 @@ model_config = utils.Config(
     horizon=args.horizon,
     transition_dim=observation_dim + action_dim,
     cond_dim=observation_dim,
-    dim_mults=args.dim_mults,
     device=args.device,
 )
 
@@ -69,12 +68,6 @@ diffusion_config = utils.Config(
     action_dim=action_dim,
     n_timesteps=args.n_diffusion_steps,
     loss_type=args.loss_type,
-    clip_denoised=args.clip_denoised,
-    predict_epsilon=args.predict_epsilon,
-    ## loss weighting
-    action_weight=args.action_weight,
-    loss_weights=args.loss_weights,
-    loss_discount=args.loss_discount,
     device=args.device,
 )
 
@@ -92,7 +85,6 @@ trainer_config = utils.Config(
     results_folder=args.savepath,
     bucket=args.bucket,
     n_reference=args.n_reference,
-    n_samples=args.n_samples,
 )
 
 #-----------------------------------------------------------------------------#
@@ -105,26 +97,21 @@ diffusion = diffusion_config(model)
 
 trainer = trainer_config(diffusion, dataset, renderer)
 
-
 #-----------------------------------------------------------------------------#
 #------------------------ test forward & backward pass -----------------------#
 #-----------------------------------------------------------------------------#
 
-utils.report_parameters(model)
-
 print('Testing forward...', end=' ', flush=True)
 batch = utils.batchify(dataset[0])
-loss, _ = diffusion.loss(*batch)
-loss.backward()
-print('✓')
 
+# * unpacks arguments in batch
+loss, _ = diffusion.loss(*batch)
+
+print('✓')
 
 #-----------------------------------------------------------------------------#
 #--------------------------------- main loop ---------------------------------#
 #-----------------------------------------------------------------------------#
 
-n_epochs = int(args.n_train_steps // args.n_steps_per_epoch)
-for i in range(n_epochs):
-    print(f'Epoch {i} / {n_epochs} | {args.savepath}')
-    trainer.train(n_train_steps=args.n_steps_per_epoch)
-
+# Just save untrained model checkpoint
+trainer.save(0)

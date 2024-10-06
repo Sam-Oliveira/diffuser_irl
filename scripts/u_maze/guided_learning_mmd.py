@@ -19,13 +19,13 @@ class Parser(utils.Parser):
     dataset: str = 'maze2d-umaze-v1'
     config: str = 'config.maze2d'
 
+
+"""
+This script learns a reward model from some expert trajectories, using MMD Loss (change line 151 for choice of kernel).
+"""
 #---------------------------------- setup ----------------------------------#
 
 args = Parser().parse_args('guided_learning_mmd')
-
-# logger = utils.Logger(args)
-
-#env = datasets.load_environment(args.dataset)
 
 #---------------------------------- loading ----------------------------------#
 
@@ -51,10 +51,6 @@ guide_config = utils.Config(args.guide, model=value_function, verbose=False)
 guide = guide_config()
 
 
-# this was previously in unguided planning, but I dont think this works like that anymore
-#policy = Policy(diffusion, dataset.normalizer)
-
-
 ## policies are wrappers around an unconditional diffusion model and a value guide
 policy_config = utils.Config(
     args.policy,
@@ -63,7 +59,6 @@ policy_config = utils.Config(
     diffusion_model=diffusion,
     normalizer=dataset.normalizer,
     preprocess_fns=args.preprocess_fns,
-    ## sampling kwargs (idk what these mean)
     sample_fn=sampling.n_step_guided_p_sample,
     n_guide_steps=args.n_guide_steps,
     t_stopgrad=args.t_stopgrad,
@@ -88,7 +83,6 @@ env.set_target()
 step_size=10
 start_points=[13,14,15]
 rollouts_per_start_point=3
-#DEPENDING ON ENVIRONMENT (numb of steps below - 200 or 300 )
 expert_trajectories=torch.empty((0,300,dataset.observation_dim+dataset.action_dim))
 for start in start_points:  
     #DEPENDING ON ENVIRONMENT
@@ -106,33 +100,22 @@ for start in start_points:
 expert_trajectories=torch.flatten(expert_trajectories,start_dim=0,end_dim=1)
 expert_trajectories=torch.split(expert_trajectories,step_size,dim=0)
 expert_trajectories=torch.stack(expert_trajectories,dim=0)
-#train_dataloader = DataLoader(expert_trajectories, batch_size=1, shuffle=True)
 
 # Arguments
-
-print(expert_trajectories.shape[0])
 epochs=500
 n_samples_per_epoch=expert_trajectories.shape[0]
 numb_exp_trajectories=len(expert_trajectories)
 
-
-        
-#loss = torch.nn.MSELoss()
-
 optimizer = torch.optim.Adam(value_function.model.parameters(), lr=2e-2)
 
 
-#loss = torch.nn.MSELoss()
 loss_array=[]
 loss=MMD_loss()
-#loss = torch.nn.MSELoss()
 
 for e in range(epochs):
     print("EPOCH "+str(e))
     curr_loss=0
     terms=0
-
-    # FIRST ONE IS FOR MINI BATCH DATA, BUT TRYING TO USE DATALOADER. 
 
     train_dataloader = DataLoader(expert_trajectories, batch_size=16, shuffle=False,num_workers=0)
     for targets in train_dataloader:
@@ -155,34 +138,6 @@ for e in range(epochs):
         optimizer.zero_grad()
         terms+=1
 
-    # FOR 1 ENTIRE BATCH (RUNS OUT OF MEMORY IN LARGE MAZE IN CLUSTER/CUDA)
-    """
-    observations=expert_trajectories[:,0,2:]
-    conditions={0:observations}
-
-    action,samples=policy(conditions,batch_size=observations.shape[0],diff_conditions=True,verbose=args.verbose)
-
-    targets=expert_trajectories.to(torch.float32)
-    sample_actions=samples.actions[:,:step_size,:]
-    sample_observations=samples.observations[:,:step_size,:]
-
-    predictions=torch.cat((sample_actions,sample_observations),dim=-1) 
-
-    #loss_value=loss(torch.flatten(predictions,start_dim=1),torch.flatten(targets,start_dim=1))
-    loss_value=loss(torch.flatten(predictions,start_dim=1),torch.flatten(targets,start_dim=1),kernel='matern')
-
-    print('Backward pass')
-    loss_value.backward() # gradients will be accumulated across different datapoints, and then backprop once we have gone through entire data
-
-    curr_loss+=loss_value.detach().numpy()/expert_trajectories.shape[0]
-
-    optimizer.step()
-
-    optimizer.zero_grad()
-
-        
-    """
-    
     loss_array.append(curr_loss/terms)
     if e%10==0 or e==epochs-1:
         torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}.pt'.format(f=e+1))
@@ -193,7 +148,6 @@ for e in range(epochs):
     plt.ylabel('MMD Loss',fontsize=12)
     print(loss_array)
     plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_mmd.pdf',format="pdf", bbox_inches="tight")
-    #plt.close()
 
 # NOTE: SAVE WITHOUT .model. so that the parameters have name model.fc.weight instead of fc.weight, and thus match what load() function in training.py expects! 
 torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}.pt'.format(f=epochs))

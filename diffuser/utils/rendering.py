@@ -14,6 +14,7 @@ from .arrays import to_np
 from .video import save_video, save_videos
 
 from diffuser.datasets.d4rl import load_environment
+import torch
 
 #-----------------------------------------------------------------------------#
 #------------------------------- helper structs ------------------------------#
@@ -314,7 +315,7 @@ class MazeRenderer:
             savepath : str
             observations : [ n_paths x horizon x 2 ]
         '''
-
+        
         assert len(paths) % ncol == 0, 'Number of paths must be divisible by number of columns'
 
         images = []
@@ -328,6 +329,7 @@ class MazeRenderer:
             '(nrow ncol) H W C -> (nrow H) (ncol W) C', nrow=nrow, ncol=ncol)
         imageio.imsave(savepath, images)
         print(f'Saved {len(paths)} samples to: {savepath}')
+        #return images #ADDED FOR NOTEBOOK
 
 class Maze2dRenderer(MazeRenderer):
 
@@ -340,6 +342,130 @@ class Maze2dRenderer(MazeRenderer):
         self._background = self.env.maze_arr == 10
         self._remove_margins = False
         self._extent = (0, 1, 1, 0)
+
+    def plot2img(fig, remove_margins=True):
+        # https://stackoverflow.com/a/35362787/2912349
+        # https://stackoverflow.com/a/54334430/2912349
+
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+        if remove_margins:
+            fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+
+        canvas = FigureCanvasAgg(fig)
+        canvas.draw()
+        img_as_string, (width, height) = canvas.print_to_buffer()
+        return np.fromstring(img_as_string, dtype='uint8').reshape((height, width, 4))
+
+    def _render_field(self, field, title, **kwargs):
+        plt.clf()
+        fig, ax = plt.subplots()
+        fig.set_size_inches(5, 5)
+        #print(self._background)
+        #print(self._extent)
+        ax.imshow(self._background,
+                    extent=self._extent, alpha = 0.25, cmap=plt.cm.binary, vmin=0, vmax=1, zorder = 10)
+        """
+        cmap = plt.cm.viridis
+        cmap.set_bad((0.66, 0.66, 0.66, 1))
+
+        # Set the diagonal to NaN
+        field[self._background] = np.nan
+
+        img=ax.imshow(
+            field, 
+            cmap=cmap,
+            extent = self._extent, 
+            alpha = 1, zorder = 0, **kwargs
+        ) 
+        """
+        field_interm=field.copy()
+        field_interm[self._background]=np.nan
+        #print(field_interm)
+        #print(np.nanmax(field_interm))
+        #print(field)
+        """
+        img=ax.imshow(
+            field, 
+            cmap=plt.cm.viridis,
+            extent = self._extent, 
+            alpha = 1, zorder = 0, interpolation='spline36',vmin=0,vmax=np.nanmax(field_interm),**kwargs
+        ) 
+        """
+        img=ax.imshow(
+            field, 
+            cmap=plt.cm.viridis,
+            extent = self._extent, 
+            alpha = 1, zorder = 0, interpolation='spline36',vmin=np.nanmin(field_interm),vmax=np.nanmax(field_interm),**kwargs
+        ) 
+
+        #cmap = plt.cm.viridis
+        #cmap.set_bad((0.66, 0.66, 0.66, 1))
+
+        # Set the diagonal to NaN
+        field[~self._background] = np.nan
+        ax.imshow(
+            field*0+0.43, 
+            cmap=plt.cm.Greys,
+            extent = self._extent, 
+            alpha = 1, zorder = 0, vmin=0, vmax=1, **kwargs
+        )
+
+        plt.axis('off')
+        cbar=plt.colorbar(img,ax=ax,shrink=0.8)
+        cbar.ax.get_yaxis().labelpad = 20
+        cbar.ax.set_ylabel('State value',rotation=270,fontsize=12)
+        cbar.ax.tick_params(labelsize=12)
+        #plt.title(title)
+        plt.savefig("State_value.pdf", format="pdf", bbox_inches="tight")
+        plt.savefig('HEATMAP.png')
+        img = plot2img(fig, remove_margins=self._remove_margins)
+
+        return img
+
+    def render_reward_heatmap(self, trajectories, preds, shape_factor = 1, samples_thresh = 0):
+        _, bx, _, by = MAZE_BOUNDS[self.env_name]
+        bounds = torch.tensor([bx, by])
+        shape_t = (bounds * shape_factor).int().reshape((1, 2))
+        shape = shape_t.flatten().tolist()
+
+        #horizon = trajectories.shape[1]
+        trajectories_flat = trajectories
+        preds_repeated = preds
+
+        #------
+        #breakpoint()
+        trajectories = trajectories_flat.numpy()
+        preds = preds_repeated.numpy()
+
+        #preds = scipy.stats.mstats.winsorize(preds, limits = (0.005, 0.995))
+        hist = np.histogram2d(
+            trajectories[:, 0] + 0.5, 
+            trajectories[:, 1] + 0.5, 
+            weights = np.ravel(preds),
+            bins = shape,
+            range = [[0, bx], [0, by]]
+        )
+
+        hist_counts = np.histogram2d(
+            trajectories[:, 0] + 0.5, 
+            trajectories[:, 1] + 0.5, 
+            bins = shape,
+            range = [[0, bx], [0, by]]
+        )
+
+        mask = hist_counts[0] >= samples_thresh
+
+        #counts_field = hist_counts[0] / trajectories.shape[0]
+        reward_field = hist[0] / np.maximum(hist_counts[0], 1)
+
+        reward_field *= mask
+        #counts_field *= mask
+
+        img_reward = self._render_field(reward_field, title="Reward heatmap")
+        #img_counts = self._render_field(counts_field, title="Counts heatmap")
+
+        return img_reward, reward_field
 
     def renders(self, observations, conditions=None, **kwargs):
         bounds = MAZE_BOUNDS[self.env_name]

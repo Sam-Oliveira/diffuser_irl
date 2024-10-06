@@ -1,6 +1,9 @@
 import json
 import numpy as np
 from os.path import join
+import pdb
+import torch
+
 from diffuser.guides.policies import Policy
 import diffuser.datasets as datasets
 import diffuser.utils as utils
@@ -8,13 +11,8 @@ import diffuser.sampling as sampling
 
 
 class Parser(utils.Parser):
-    dataset: str = 'halfcheetah-expert-v2'
-    config: str = 'config.locomotion'
-
-
-"""
-This script outputs trajectories based on guided diffusion with a reward model.
-"""
+    dataset: str = 'maze2d-umaze-v1'
+    config: str = 'config.maze2d'
 
 #---------------------------------- setup ----------------------------------#
 
@@ -23,7 +21,7 @@ args = Parser().parse_args('guided_plan')
 
 #---------------------------------- loading ----------------------------------#
 
-diffusion_experiment = utils.load_diffusion(args.logbase, 'halfcheetah-medium-replay-v2', args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
+diffusion_experiment = utils.load_diffusion(args.logbase, args.dataset, args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
 
 value_experiment = utils.load_diffusion(
     args.loadbase, args.dataset, args.value_loadpath,
@@ -44,16 +42,6 @@ value_function = value_experiment.ema
 guide_config = utils.Config(args.guide, model=value_function, verbose=False)
 guide = guide_config()
 
-
-logger_config = utils.Config(
-    utils.Logger,
-    renderer=renderer,
-    logpath=args.savepath,
-    vis_freq=args.vis_freq,
-    max_render=args.max_render,
-)
-
-
 ## policies are wrappers around an unconditional diffusion model and a value guide
 policy_config = utils.Config(
     args.policy,
@@ -62,20 +50,25 @@ policy_config = utils.Config(
     diffusion_model=diffusion,
     normalizer=dataset.normalizer,
     preprocess_fns=args.preprocess_fns,
+    ## sampling kwargs (idk what these mean)
     sample_fn=sampling.n_step_guided_p_sample,
     n_guide_steps=args.n_guide_steps,
     t_stopgrad=args.t_stopgrad,
     scale_grad_by_std=args.scale_grad_by_std,
+    stop_grad=args.stop_grad,
     verbose=False,
 )
 
 # calls the guided policy class, instead of the normal policy class that was used for unguided planning
-logger = logger_config()
 policy = policy_config()
 
 #---------------------------------- main loop ----------------------------------#
 env=dataset.env
 observation = env.reset()
+
+#if args.conditional:
+print('Resetting target')
+env.set_target()
 
 ## observations for rendering
 rollout = [observation.copy()] #1st observation I think
@@ -84,46 +77,80 @@ total_reward = 0
 trajectories=[]
 
 max_steps=env.max_episode_steps
+max_steps=300 #only for large maze. if not, it.s env.max steps which is 300
 
 for t in range(max_steps):
 
-    if t % 10 == 0: print(args.savepath, flush=True)
 
     ## save state for rendering only
     state = env.state_vector().copy()
 
     ## format current observation for conditioning (NO IMPAINTING)
     conditions = {0: observation}
-    
+
     #i think basically we take 1 step, and plan again every time! (in rollout image. in plan, it's just the plan at first step)
     action, samples = policy(conditions, batch_size=args.batch_size, verbose=args.verbose)
 
-
-    trajectories.append(np.concatenate((action.detach().cpu().numpy(),observation)))
+    trajectories.append(np.concatenate((action.detach().numpy(),observation)))
 
     ## execute action in environment
-    next_observation, reward, terminal, _ = env.step(action.detach().cpu().numpy())
+    next_observation, reward, terminal, _ = env.step(action.detach().numpy())
 
     ## print reward and score
     total_reward += reward
     score = env.get_normalized_score(total_reward)
     print(
         f't: {t} | r: {reward:.2f} |  R: {total_reward:.2f} | score: {score:.4f} | '
-        f'values: {samples.values} | scale: {args.scale}',
-        flush=True,
+        f'{action.detach().numpy()}'
     )
+
 
     ## update rollout observations. Note this does not include actions! Rollout is a list of nparrays, each of them is the current state at a step
     rollout.append(next_observation.copy())
 
-    ## render every `args.vis_freq` steps
-    logger.log(t, samples, state, rollout)
-    
+    # logger.log(score=score, step=t)
+    if t % args.vis_freq == 0 or terminal:
+        fullpath = join(args.savepath, f'{t}'+str(args.seed)+'.png')
+
+        if t == 0: renderer.composite(fullpath, samples.observations.detach().numpy() , ncol=1)
+
+        ## save rollout thus far
+        
+        renderer.composite(join(args.savepath, 'rollout'+str(args.seed)+'.png'), np.array(rollout)[None], ncol=1)
+
     if terminal:
         break
 
     observation = next_observation
 
-## write results to json file at `args.savepath`
-logger.finish(t, score, total_reward, terminal, diffusion_experiment, value_experiment)
+## save result as a json file
+json_path = join(args.savepath, 'rollout'+str(args.seed)+'.json')
+
+# Trajectories is list of np arrays. Transform to list of lists for json file
+trajectories=[t.tolist() for t in trajectories]
+
+json_data = {'score': score, 'step': t, 'return': total_reward, 'term': terminal,
+    'epoch_diffusion': diffusion_experiment.epoch,'rollout':trajectories}
+json.dump(json_data, open(json_path, 'w'), indent=2, sort_keys=True)
+
+
+# CODE TO PRINT REWARD FOR EACH COORDINATE IN MAZE
+
+for name,param in value_function.model.named_parameters():
+    if name=='fc.weight':
+        parameter=param.detach().numpy()
+                
+
+# FOR UMAZE
+x=np.linspace(1,4,num=30)
+y=np.linspace(1,4,num=30)
+xv,yv=np.meshgrid(x,y,indexing='ij')
+
+
+values=np.multiply(yv,5)+np.multiply(xv,5)
+
+values=np.pad(values,((10,10),(10,10)),mode='constant',constant_values=(np.nan,)) #for maze limits
+values[20:30,10:30]=np.nan #for maze limits!
+
+renderer.composite_reward_function(join(args.savepath, 'values.png'), np.array(values)[None], ncol=1)
 

@@ -101,7 +101,7 @@ base = {
 
         ## value-specific kwargs
         'discount': 0.99,
-        'termination_penalty': -100,
+        'termination_penalty': None,
         'normed': False,
 
         ## dataset
@@ -215,7 +215,7 @@ base = {
         'preprocess_fns': [],
         'device': 'cpu',
         'seed': 40, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
-        'env_seed':13, #seed for environment
+        'env_seed':14, #seed for environment
 
         ## sample_kwargs
         'n_guide_steps': 2,
@@ -256,13 +256,13 @@ base = {
         'preprocess_fns': [],
         'device': 'cpu',
         'seed': 40, #seed for diffusion (this gets used in diffuser/utils/setup.py to set the torch seed)
-        'env_seed':13, #seed for environment
+        'env_seed':15, #seed for environment
 
         ## sample_kwargs
         'n_guide_steps': 2,
         'scale': 0.1,
         't_stopgrad': 2,
-        'scale_grad_by_std': True,
+        'scale_grad_by_std':False,
 
         ## serialization
         'loadbase': None,
@@ -328,17 +328,11 @@ halfcheetah_medium_replay_v2 = halfcheetah_medium_v2 = halfcheetah_medium_expert
     'guided_learning':{
         'horizon': 4,
         'scale': 0.001,
-        't_stopgrad': 4,
+        't_stopgrad': 0,
     },
     'guided_learnt_reward':{
         'horizon': 4,
-        'scale': 0.001,
-        't_stopgrad': 4,
+        'scale': 0.1,
+        't_stopgrad': 0,
     },
 }
-
-#halfcheetah_medium_expert_v2 = {
-#    'diffusion': {
-#        'horizon': 16,
-#    },
-#}
