@@ -17,14 +17,14 @@ class Logger:
         ## render image of plans
         self.renderer.composite(
             os.path.join(self.savepath, f'{t}.png'),
-            samples.observations,
+            samples.observations.detach().cpu(),
         )
 
         ## render video of plans
         self.renderer.render_plan(
             os.path.join(self.savepath, f'{t}_plan.mp4'),
-            samples.actions[:self.max_render],
-            samples.observations[:self.max_render],
+            samples.actions[:self.max_render].detach().cpu(),
+            samples.observations[:self.max_render].detach().cpu(),
             state,
         )
 

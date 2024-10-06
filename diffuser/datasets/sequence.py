@@ -17,7 +17,7 @@ class SequenceDataset(torch.utils.data.Dataset):
 
     def __init__(self, env='hopper-medium-replay', horizon=64,
         normalizer='LimitsNormalizer', preprocess_fns=[], max_path_length=1000,
-        max_n_episodes=10000, termination_penalty=0, use_padding=True, seed=None):
+        max_n_episodes=10000, termination_penalty=0, use_padding=True,seed=0):
         self.preprocess_fn = get_preprocess_fn(preprocess_fns, env)
         self.env = env = load_environment(env)
         self.env.seed(seed)
@@ -116,6 +116,24 @@ class ValueDataset(SequenceDataset):
         if normed:
             self.vmin, self.vmax = self._get_bounds()
             self.normed = True
+
+    def _get_bounds(self):
+        print('[ datasets/sequence ] Getting value dataset bounds...', end=' ', flush=True)
+        vmin = np.inf
+        vmax = -np.inf
+        for i in range(len(self.indices)):
+            value = self.__getitem__(i).values.item()
+            vmin = min(value, vmin)
+            vmax = max(value, vmax)
+        print('✓')
+        return vmin, vmax
+
+    def normalize_value(self, value):
+        ## [0, 1]
+        normed = (value - self.vmin) / (self.vmax - self.vmin)
+        ## [-1, 1]
+        normed = normed * 2 - 1
+        return normed
 
     def _get_bounds(self):
         print('[ datasets/sequence ] Getting value dataset bounds...', end=' ', flush=True)

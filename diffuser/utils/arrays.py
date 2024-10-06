@@ -21,12 +21,13 @@ def to_torch(x, dtype=None, device=None):
 	if type(x) is dict:
 		return {k: to_torch(v, dtype, device) for k, v in x.items()}
 	elif torch.is_tensor(x):
-		return x.to(device).type(dtype)
+		return x.type(dtype) #changed this
+		# import pdb; pdb.set_trace()
 	return torch.tensor(x, dtype=dtype, device=device)
 
 def to_device(x, device=DEVICE):
 	if torch.is_tensor(x):
-		return x.to(device)
+		return x #changed this
 	elif type(x) is dict:
 		return {k: to_device(v, device) for k, v in x.items()}
 	else:

@@ -6,6 +6,9 @@ import torch.nn.functional as F
 import einops
 from einops.layers.torch import Rearrange
 import pdb
+from sklearn.metrics import pairwise_distances
+from sklearn.decomposition import PCA
+import gpytorch
 
 import diffuser.utils as utils
 
@@ -140,9 +143,17 @@ def cosine_beta_schedule(timesteps, s=0.008, dtype=torch.float32):
     return torch.tensor(betas_clipped, dtype=dtype)
 
 def apply_conditioning(x, conditions, action_dim):
+    
+    # Original code, fails when x requires_grad
+    #for t, val in conditions.items():
+    #    x[:, t, action_dim:] = val.clone()
+    #return x
+
+    # Code for when x requires_grad
+    z=x.clone()
     for t, val in conditions.items():
-        x[:, t, action_dim:] = val.clone()
-    return x
+        z[:, t, action_dim:] = val.clone()
+    return z
 
 
 #-----------------------------------------------------------------------------#
@@ -175,8 +186,8 @@ class ValueLoss(nn.Module):
 
         if len(pred) > 1:
             corr = np.corrcoef(
-                utils.to_np(pred).squeeze(),
-                utils.to_np(targ).squeeze()
+                pred.squeeze(),
+                targ.squeeze()
             )[0,1]
         else:
             corr = np.NaN
@@ -210,9 +221,65 @@ class ValueL2(ValueLoss):
     def _loss(self, pred, targ):
         return F.mse_loss(pred, targ, reduction='none')
 
+
 Losses = {
     'l1': WeightedL1,
     'l2': WeightedL2,
     'value_l1': ValueL1,
     'value_l2': ValueL2,
 }
+
+
+# From https://github.com/jindongwang/transferlearning/blob/master/code/distance/mmd_pytorch.py
+class MMD_loss(nn.Module):
+    
+    def __init__(self, kernel_mul = 2.0, kernel_num = 5):
+        super(MMD_loss, self).__init__()
+        self.kernel_num = kernel_num
+        self.kernel_mul = kernel_mul
+        self.fix_sigma = None
+
+    def guassian_kernel(self, source, target, kernel_mul=2.0, kernel_num=5, fix_sigma=None):
+        n_samples = int(source.size()[0])+int(target.size()[0])
+        total = torch.cat([source, target], dim=0)
+
+        total0 = total.unsqueeze(0).expand(int(total.size(0)), int(total.size(0)), int(total.size(1)))
+        total1 = total.unsqueeze(1).expand(int(total.size(0)), int(total.size(0)), int(total.size(1)))
+        L2_distance = ((total0-total1)**2).sum(2) 
+        if fix_sigma:
+            bandwidth = fix_sigma
+        else:
+            bandwidth = torch.sum(L2_distance.data) / (n_samples**2-n_samples)
+        bandwidth /= kernel_mul ** (kernel_num // 2)
+        bandwidth_list = [bandwidth * (kernel_mul**i) for i in range(kernel_num)]
+        kernel_val = [torch.exp(-L2_distance / bandwidth_temp) for bandwidth_temp in bandwidth_list]
+        return sum(kernel_val)
+
+    def matern_kernel(self, source, target,nu):
+        total = torch.cat([source, target], dim=0)
+        total=torch.nn.functional.normalize(total)
+        covar_module=gpytorch.kernels.MaternKernel(nu=nu)
+        return covar_module(total).to_dense()
+
+    def forward(self, source, target,kernel='gaussian'):
+        batch_size = int(source.size()[0])
+        if kernel=='gaussian':
+            kernels = self.guassian_kernel(source, target, kernel_mul=self.kernel_mul, kernel_num=self.kernel_num, fix_sigma=self.fix_sigma)
+            XX = torch.mean(kernels[:batch_size, :batch_size])
+            YY = torch.mean(kernels[batch_size:, batch_size:])
+            XY = torch.mean(kernels[:batch_size, batch_size:])
+            YX = torch.mean(kernels[batch_size:, :batch_size])
+            loss = torch.mean(XX + YY - XY -YX)
+            return loss
+        elif kernel=='matern':
+            K=self.matern_kernel(source,target,0.5)
+            N=source.shape[0]
+            M=target.shape[0]
+            Kxx = K[:N,:N]
+            Kyy = K[N:,N:]
+            Kxy = K[:N,N:]
+            t1 = (1./(M*(M-1)))*torch.sum(Kxx - torch.diag(torch.diagonal(Kxx)))
+            t2 = (2./(M*N)) * torch.sum(Kxy)
+            t3 = (1./(N*(N-1)))* torch.sum(Kyy - torch.diag(torch.diagonal(Kyy)))
+            MMDsquared = (t1-t2+t3)
+            return MMDsquared

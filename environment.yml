@@ -19,7 +19,7 @@ dependencies:
     #- mujoco-py==2.1.2.14 # Changed from 2.0.2.13 so it would actually build wheel...
     - mujoco-py<2.2,>=2.1
     - matplotlib==3.3.4
-    - torch==1.9.1 # Original line was "torch==1.9.1+cu111" but removed it due to no cuda
+    - torch==1.9.1+cu111 #NOTE U SHOULDNT ADD CUDA. ALSO U NEED TORCH 2.0.0 TO RUN GPYTORCH!!! WHICH SHOULD ALSO THEN BE ADDED HERE
     - typed-argument-parser
     - git+https://github.com/Farama-Foundation/d4rl@f2a05c0d66722499bf8031b094d9af3aea7c372b#egg=d4rl
     - scikit-image==0.17.2
@@ -39,4 +39,5 @@ dependencies:
     - google-api-python-client
     - cryptography
     - git+https://github.com/JannerM/doodad.git@janner
-    - gdown>=4.6.0
+    - gdown
+   

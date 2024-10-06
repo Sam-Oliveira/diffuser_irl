@@ -16,7 +16,7 @@ def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    # COMMENTED THIS OUT CAUSE NOT USING CUDA
+    # Commented this sicne we are not using CUDA
     #torch.cuda.manual_seed_all(seed)
 
 def watch(args_to_watch):

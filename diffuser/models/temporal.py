@@ -3,6 +3,7 @@ import torch.nn as nn
 import einops
 from einops.layers.torch import Rearrange
 import pdb
+import torch.nn.functional as F
 
 from .helpers import (
     SinusoidalPosEmb,
@@ -14,6 +15,11 @@ from .helpers import (
     LinearAttention,
 )
 
+Activations = {
+    "mish": nn.Mish,
+    "relu": nn.ReLU,
+    "leaky_relu": nn.LeakyReLU,
+}
 
 class ResidualTemporalBlock(nn.Module):
 
@@ -44,6 +50,7 @@ class ResidualTemporalBlock(nn.Module):
         out = self.blocks[0](x) + self.time_mlp(t)
         out = self.blocks[1](out)
         return out + self.residual_conv(x)
+    
 
 
 class TemporalUnet(nn.Module):
@@ -116,7 +123,6 @@ class TemporalUnet(nn.Module):
         '''
             x : [ batch x horizon x transition ]
         '''
-
         x = einops.rearrange(x, 'b h t -> b t h')
 
         t = self.time_mlp(time)
@@ -145,37 +151,169 @@ class TemporalUnet(nn.Module):
         x = einops.rearrange(x, 'b t h -> b h t')
         return x
 
-
-class ValueFunction(nn.Module):
-
+class ValueFunction_1Layer(nn.Module):
     def __init__(
         self,
         horizon,
         transition_dim,
         cond_dim,
-        dim=32,
+        dim=8,  
+        dim_mults=(1, 2, 4, 8),
+        out_dim=1,
+    ):
+        super().__init__()
+        self.fc = nn.Linear(128*6,1,bias=False) #dimensions for umaze
+        
+        
+    def forward(self, x, cond, time, *args):
+        '''
+            x : [ batch x horizon x transition ]
+        '''
+
+        x = einops.rearrange(x, 'b h t -> b t h')
+
+        x=torch.flatten(x,start_dim=1) #changed this and the return a bit on 13th July
+        x = self.fc(x)
+
+        return x
+
+class ValueFunction_4Layer_UMaze(nn.Module):
+    def __init__(
+        self,
+        horizon,
+        transition_dim,
+        cond_dim,
+        dim=8,  
+        dim_mults=(1, 2, 4, 8),
+        out_dim=1,
+    ):
+        super().__init__()
+        self.fc1 = nn.Linear(128*6,384) #dimensions for umaze
+        self.fc2 = nn.Linear(384,128) #dimensions for umaze
+        self.fc3 = nn.Linear(128,64) #dimensions for umaze
+        self.fc4 = nn.Linear(64,1) #dimensions for umaze
+        self.non_lin=torch.nn.ReLU()
+        
+        
+    def forward(self, x, cond, time, *args):
+        '''
+            x : [ batch x horizon x transition ]
+        '''
+
+        x = einops.rearrange(x, 'b h t -> b t h')
+
+
+
+        x=torch.flatten(x,start_dim=1) #changed this and the return a bit on 13th July
+        x = self.non_lin(self.fc1(x))
+        x = self.non_lin(self.fc2(x))
+        x = self.non_lin(self.fc3(x))
+        x = self.fc4(x)
+
+
+        return x
+
+        
+class ValueFunction_4Layer_LargeMaze(nn.Module):
+    def __init__(
+        self,
+        horizon,
+        transition_dim,
+        cond_dim,
+        dim=8,  
         dim_mults=(1, 2, 4, 8),
         out_dim=1,
     ):
         super().__init__()
 
-        dims = [transition_dim, *map(lambda m: dim * m, dim_mults)]
+        self.fc1 = nn.Linear(384*6,1024) #dimensions for umaze
+        self.fc2 = nn.Linear(1024,512) #dimensions for umaze
+        self.fc3 = nn.Linear(512,128) #dimensions for umaze
+        self.fc4 = nn.Linear(128,1) #dimensions for umaze
+        self.non_lin=torch.nn.ReLU()
+        
+        
+    def forward(self, x, cond, time, *args):
+        '''
+            x : [ batch x horizon x transition ]
+        '''
+
+        x = einops.rearrange(x, 'b h t -> b t h')
+
+        x=torch.flatten(x,start_dim=1) 
+        x = self.non_lin(self.fc1(x))
+        x = self.non_lin(self.fc2(x))
+        x = self.non_lin(self.fc3(x))
+        x = self.fc4(x)
+
+
+        return x
+class TrueReward(nn.Module):
+    def __init__(
+        self,
+        horizon,
+        transition_dim,
+        cond_dim,
+        dim=8,  
+        dim_mults=(1, 2, 4, 8),
+        out_dim=1,
+    ):
+        super().__init__()
+
+        self.fc = nn.Linear(128*6,1,bias=False) #dimensions for umaze
+        
+        
+    def forward(self, x, cond, time, *args):
+        '''
+            x : [ batch x horizon x transition ]
+        '''
+
+        x = einops.rearrange(x, 'b h t -> b t h')
+
+        x=x[:,2:4,:]
+        x=torch.sum(x,dim=1)
+        x=torch.sum(x,dim=1,keepdim=True)
+        return 5*x
+
+
+class ValueFunction_UMaze(nn.Module):
+    def __init__(
+        self,
+        transition_dim,
+        cond_dim,
+        horizon=128,
+        kernel_size = 5,
+        stride = 1,
+        dim=4,
+        dim_mults=(8,4,2,1),
+        embed_dim = 32,
+        activation = "mish",
+    ):
+        super().__init__()
+        self.horizon = horizon
+        self.activation = activation
+        dims = [transition_dim + embed_dim, *map(lambda m: dim * m, dim_mults), 1]
         in_out = list(zip(dims[:-1], dims[1:]))
 
-        time_dim = dim
+        l = horizon
+        for i, _ in enumerate(in_out):
+            print(l)
+            #l_in = horizons[-1]
+            s = stride if i > 0 else 1
+            l = int((l - kernel_size)/s + 1)
+            #horizons.append(l_out)
+
         self.time_mlp = nn.Sequential(
-            SinusoidalPosEmb(dim),
-            nn.Linear(dim, dim * 4),
-            nn.Mish(),
-            nn.Linear(dim * 4, dim),
+            SinusoidalPosEmb(embed_dim),
+            nn.Linear(embed_dim, embed_dim * 4),
+            nn.Mish() if self.activation == "mish" else nn.ReLU(),
+            nn.Linear(embed_dim * 4, embed_dim),
         )
 
         self.blocks = nn.ModuleList([])
-        num_resolutions = len(in_out)
 
         print(in_out)
-        for ind, (dim_in, dim_out) in enumerate(in_out):
-            is_last = ind >= (num_resolutions - 1)
+        for dim_in, dim_out in in_out:
 
             self.blocks.append(nn.ModuleList([
                 ResidualTemporalBlock(dim_in, dim_out, kernel_size=5, embed_dim=time_dim, horizon=horizon),
@@ -183,22 +321,9 @@ class ValueFunction(nn.Module):
                 Downsample1d(dim_out)
             ]))
 
-            if not is_last:
-                horizon = horizon // 2
+            horizon = horizon // 2
 
-        mid_dim = dims[-1]
-        mid_dim_2 = mid_dim // 2
-        mid_dim_3 = mid_dim // 4
-        ##
-        self.mid_block1 = ResidualTemporalBlock(mid_dim, mid_dim_2, kernel_size=5, embed_dim=time_dim, horizon=horizon)
-        self.mid_down1 = Downsample1d(mid_dim_2)
-        horizon = horizon // 2
-        ##
-        self.mid_block2 = ResidualTemporalBlock(mid_dim_2, mid_dim_3, kernel_size=5, embed_dim=time_dim, horizon=horizon)
-        self.mid_down2 = Downsample1d(mid_dim_3)
-        horizon = horizon // 2
-        ##
-        fc_dim = mid_dim_3 * max(horizon, 1)
+        fc_dim = dims[-1] * max(horizon, 1)
 
         self.final_block = nn.Sequential(
             nn.Linear(fc_dim + time_dim, fc_dim // 2),
@@ -216,20 +341,9 @@ class ValueFunction(nn.Module):
         ## mask out first conditioning timestep, since this is not sampled by the model
         # x[:, :, 0] = 0
 
-        t = self.time_mlp(time)
-
-        for resnet, resnet2, downsample in self.blocks:
-            x = resnet(x, t)
-            x = resnet2(x, t)
-            x = downsample(x)
-
-        ##
-        x = self.mid_block1(x, t)
-        x = self.mid_down1(x)
-        ##
-        x = self.mid_block2(x, t)
-        x = self.mid_down2(x)
-        ##
-        x = x.view(len(x), -1)
-        out = self.final_block(torch.cat([x, t], dim=-1))
-        return out
+        x=torch.flatten(x,start_dim=1) 
+        x = self.non_lin(self.fc1(x))
+        x = self.non_lin(self.fc2(x))
+        x = self.non_lin(self.fc3(x))
+        x = self.fc4(x)
+        return x

@@ -1,0 +1,204 @@
+import numpy as np
+import gymnasium as gym
+#import gym
+from stable_baselines3 import PPO
+from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.ppo import MlpPolicy
+
+from imitation.algorithms.adversarial.airl import AIRL
+from imitation.rewards.reward_nets import BasicRewardNet,BasicShapedRewardNet
+from imitation.util.networks import RunningNorm
+import json
+import torch
+import os
+
+from imitation.algorithms import bc
+from imitation.data import rollout
+from imitation.data.wrappers import RolloutInfoWrapper
+from imitation.policies.serialize import load_policy
+from imitation.util.util import make_vec_env
+from imitation.data.types import Trajectory
+import d4rl
+from gymnasium.spaces import Box
+from imitation.data.rollout import rollout as roll_traject
+from gymnasium import spaces
+from collections import OrderedDict
+import diffuser.utils as utils
+import diffuser.sampling as sampling
+from torch.utils.data import DataLoader
+from torch.utils.data import SubsetRandomSampler
+
+# NOTE! NEED TO INSTALL GYMNASIUM-ROBOTICS FOR THE UMAZE ENV!
+
+
+class Parser(utils.Parser):
+    dataset: str = 'maze2d-large-v1'
+    config: str = 'config.maze2d'
+
+#---------------------------------- setup ----------------------------------#
+
+args = Parser().parse_args('guided_learning_mmd')
+
+rng = np.random.default_rng(13)
+seed=13
+
+env_imit = make_vec_env(
+    'PointMaze_Large-v3',
+    rng=rng,
+    n_envs=1,
+    post_wrappers=[lambda env, _: RolloutInfoWrapper(env)],  # for computing rollouts
+)
+
+object_methods = [method_name for method_name in dir(env_imit)
+                  if callable(getattr(env_imit, method_name))]
+env_imit.reset()
+
+
+env_imit.unwrapped.observation_space=Box(-np.inf, np.inf, (4,), np.float64)
+od=OrderedDict()
+od['observation']=np.asarray([[1,1,0,0]])
+od['observation']=env_imit.unwrapped.buf_obs['observation']
+env_imit.unwrapped.buf_obs=od
+env_imit.unwrapped.keys=['observation']
+
+observation_dim=4
+action_dim=2
+# Load expert trajectories
+expert_trajectories=torch.empty((0,384,observation_dim+action_dim))
+lists=[[0,1,3],[4],[5],[7],[2,6]]
+for i,list in enumerate(lists):
+    exp_traj=torch.load('logs/maze2d-large-v1/exp_traj/'+"expert_"+str(i+1)+".pt")
+    exp_traj=exp_traj[list]
+    expert_trajectories=torch.cat((expert_trajectories, exp_traj))
+
+rollouts=[]
+for trajectory_index in range(expert_trajectories.shape[0]):
+    rollouts.append(Trajectory(obs=np.asarray(expert_trajectories[trajectory_index,:,2:]),acts=np.asarray(expert_trajectories[trajectory_index,:-1,:2]),infos=None,terminal=True))
+
+learner = PPO(
+    env=env_imit,
+    policy=MlpPolicy,
+    batch_size=64,
+    ent_coef=0.0,
+    learning_rate=0.0004,
+    gamma=0.95,
+    clip_range=0.1,
+    vf_coef=0.1,
+    n_epochs=5,
+    seed=seed,
+)
+reward_net = BasicShapedRewardNet(
+    observation_space=env_imit.observation_space,
+    action_space=env_imit.action_space,
+    normalize_input_layer=RunningNorm,
+)
+
+airl_trainer = AIRL(
+    demonstrations=rollouts,
+    demo_batch_size=2048,
+    gen_replay_buffer_capacity=512,
+    n_disc_updates_per_round=16,
+    venv=env_imit,
+    gen_algo=learner,
+    reward_net=reward_net,
+)
+
+env_imit.seed(seed)
+
+# train the learner and evaluate again
+airl_trainer.train(200000)  # Train for 800_000 steps to match expert.
+
+policy=rollout.policy_to_callable(airl_trainer.policy,env_imit)
+
+
+# TEST THE LEARNT BC ALGORITHM ON LARGE-MAZE
+
+# For Large-Maze
+start_points=torch.from_numpy(np.asarray([
+    [1,1.5,0,0],
+    [2.1,1.1,0,0],
+    [7,1,0,0],
+    [5,4,0,0],
+    [5,2,0,0],
+    [0.8,7,0,0],
+    [1.5,10.3,0.5,0.5],
+    [1.8,8.2,0.5,0.5]
+]))
+
+trajectories_per_start_point=4
+learnt_trajectories=torch.empty((0,384,observation_dim+action_dim))
+
+
+value_experiment = utils.load_diffusion(
+    args.loadbase, args.dataset, args.value_loadpath,
+    epoch=args.value_epoch, seed=args.env_seed,
+)
+diffusion_experiment = utils.load_diffusion(args.logbase, args.dataset, args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
+
+diffusion=diffusion_experiment.ema
+dataset = value_experiment.dataset
+value_function = value_experiment.ema
+env=dataset.env
+renderer = value_experiment.renderer
+
+guide_config = utils.Config(args.guide, model=value_function, verbose=False)
+guide = guide_config()
+
+policy_config = utils.Config(
+    args.policy,
+    guide=guide,
+    scale=args.scale,
+    diffusion_model=diffusion,
+    normalizer=dataset.normalizer,
+    preprocess_fns=args.preprocess_fns,
+    sample_fn=sampling.n_step_guided_p_sample,
+    n_guide_steps=args.n_guide_steps,
+    t_stopgrad=args.t_stopgrad,
+    scale_grad_by_std=args.scale_grad_by_std,
+    stop_grad=args.stop_grad,
+    verbose=False,
+)
+
+# calls the guided policy class, instead of the normal policy class that was used for unguided planning
+policy_diff = policy_config()
+
+# CODE TO GET REWARDS OF BASE DIFFUSER TRAJ ACCORDING TO AIRL REWARD NET (USED TO CALCULATE ERC)
+subset_indices=[i for i in range(100)]
+train_dataloader=DataLoader(dataset, batch_size=1, shuffle=False,num_workers=0,sampler=SubsetRandomSampler(subset_indices))
+#print(reward_net.__dict__)
+values=torch.empty((0))
+for i,data in enumerate(train_dataloader):
+    curr_reward=0
+    for step in range(383):
+        done=torch.zeros(1, dtype=torch.bool)
+        if step==382:
+            done=torch.ones(1, dtype=torch.bool)
+        curr_reward+=reward_net.predict(data.trajectories[0,step,2:].unsqueeze(0).detach().numpy(),data.trajectories[0,step,:2].unsqueeze(0).detach().numpy(),data.trajectories[0,step+1,2:].unsqueeze(0).detach().numpy(),done)
+    values=torch.cat((values,torch.tensor(curr_reward)))
+torch.save(values.unsqueeze(dim=0),'logs/'+args.dataset+'/values_base_traj/values_AIRL.pt')
+
+# Back to generating trajectories according to learnt algorithm, and evaluating their reward under true reward model
+for i,start_point in enumerate(start_points):
+    for rep in range(trajectories_per_start_point):
+        current_traject=torch.empty((0,observation_dim+action_dim))
+        obs=start_point.numpy()
+        observation=env.set_state(np.asarray(start_point[:2]),np.asarray(start_point[2:]))  
+        for step in range(384):
+            
+            # Pick action based on learnt agent
+            action=policy(observations=obs,states=None,episode_starts=None)[0]
+            next_observation, reward, terminal, _ = env.step(action)
+            current_traject=torch.cat((current_traject,torch.from_numpy(np.concatenate((action,obs))).unsqueeze(0)))
+            obs=next_observation
+        learnt_trajectories=torch.cat((learnt_trajectories, current_traject.unsqueeze(0)))
+
+torch.save(learnt_trajectories,'logs/'+args.dataset+'/learnt_behaviour/AIRL/trajectories.pt')
+
+# tells reward model to analyse these trajectories as being trajectories at diffusion step=0 (this variable should be called diffusion_step instead of time)
+time=torch.zeros((learnt_trajectories.shape[0]),dtype=torch.float)
+learnt_trajectories=learnt_trajectories.to(torch.float)
+
+# NOTE THAT THE VALUE FUNCTION NEEDS TO BE THE TRUE REWARD, NOT A REWARD MODEL USED FOR LEARNING
+values=value_function(learnt_trajectories,{'0':learnt_trajectories[:,0,:]},time)
+print(values)
+print("mean reward after training:", torch.mean(values),u"\u00B1",torch.std(values))

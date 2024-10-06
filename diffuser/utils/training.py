@@ -51,6 +51,7 @@ class Trainer(object):
         save_parallel=False,
         results_folder='./results',
         n_reference=8,
+        n_samples=2,
         bucket=None,
     ):
         super().__init__()
@@ -70,8 +71,9 @@ class Trainer(object):
         self.gradient_accumulate_every = gradient_accumulate_every
 
         self.dataset = dataset
+        # ONLY NEED TO CHANGE NUM_WORKS=0 FOR DIFFUSION MODEL TRAINING!
         self.dataloader = cycle(torch.utils.data.DataLoader(
-            self.dataset, batch_size=train_batch_size, num_workers=1, shuffle=True, pin_memory=True
+            self.dataset, batch_size=train_batch_size, num_workers=0, shuffle=True, pin_memory=True
         ))
         self.dataloader_vis = cycle(torch.utils.data.DataLoader(
             self.dataset, batch_size=1, num_workers=0, shuffle=True, pin_memory=True
@@ -82,6 +84,7 @@ class Trainer(object):
         self.logdir = results_folder
         self.bucket = bucket
         self.n_reference = n_reference
+        self.n_samples = n_samples
 
         self.reset_parameters()
         self.step = 0
@@ -129,7 +132,7 @@ class Trainer(object):
                 self.render_reference(self.n_reference)
 
             if self.sample_freq and self.step % self.sample_freq == 0:
-                self.render_samples()
+                self.render_samples(n_samples=self.n_samples)
 
             self.step += 1
 
@@ -154,11 +157,22 @@ class Trainer(object):
             loads model and ema from disk
         '''
         loadpath = os.path.join(self.logdir, f'state_{epoch}.pt')
-        data = torch.load(loadpath,map_location=torch.device('cpu'))
-
+        data = torch.load(loadpath, map_location='cpu') #added the map_location part so i can load models trained on GPUs onto my CPU
+        #print(data)
         self.step = data['step']
+
+        # WILL PROBABLY HAVE TO CHANGE THIS SO MODELS ARE LOADED FOR EVAL WHEN I'M TRYING TO DO GUIDED PLANNING
         self.model.load_state_dict(data['model'])
         self.ema_model.load_state_dict(data['ema'])
+
+    def load_learnt(self,epoch): # function I created to load the model when we have trained the reward model! because in that way we dont have step or ema attributes
+        '''
+            loads model and ema from disk
+        '''
+        loadpath = os.path.join(self.logdir, f'state_{epoch}.pt')
+        data = torch.load(loadpath, map_location='cpu') #added the map_location part so i can load models trained on GPUs onto my CPU
+        self.model.load_state_dict(data)
+
 
     #-----------------------------------------------------------------------------#
     #--------------------------------- rendering ---------------------------------#
@@ -177,7 +191,7 @@ class Trainer(object):
         dataloader_tmp.close()
 
         ## get trajectories and condition at t=0 from batch
-        trajectories = to_np(batch.trajectories)
+        trajectories = batch.trajectories.detach()
         conditions = to_np(batch.conditions[0])[:,None]
 
         ## [ batch_size x horizon x observation_dim ]
@@ -195,7 +209,7 @@ class Trainer(object):
 
             ## get a single datapoint
             batch = self.dataloader_vis.__next__()
-            conditions = to_device(batch.conditions, 'device')
+            conditions = to_device(batch.conditions, 'cpu')
 
             ## repeat each item in conditions `n_samples` times
             conditions = apply_dict(
@@ -205,18 +219,32 @@ class Trainer(object):
             )
 
             ## [ n_samples x horizon x (action_dim + observation_dim) ]
-            samples = self.ema_model(conditions)
-            trajectories = to_np(samples.trajectories)
+            #samples = self.ema_model.conditional_sample(conditions)
+            #samples = to_np(samples)
+            samples=self.ema_model(conditions)
+            samples=samples.trajectories.detach()
 
             ## [ n_samples x horizon x observation_dim ]
             normed_observations = trajectories[:, :, self.dataset.action_dim:]
 
             # [ 1 x 1 x observation_dim ]
-            normed_conditions = to_np(batch.conditions[0])[:,None]
+            normed_conditions = batch.conditions[0][:,None]
+
+            # from diffusion.datasets.preprocessing import blocks_cumsum_quat
+            # observations = conditions + blocks_cumsum_quat(deltas)
+            # observations = conditions + deltas.cumsum(axis=1)
 
             ## [ n_samples x (horizon + 1) x observation_dim ]
-            normed_observations = np.concatenate([
-                np.repeat(normed_conditions, n_samples, axis=0),
+
+            # PREVIOUSLY (changed when creating the initial reward learning - commit of 11th July)
+            #normed_observations = np.concatenate([
+            #    np.repeat(normed_conditions, n_samples, axis=0),
+            #    normed_observations
+            #], axis=1)
+            # NOW
+            normed_observations = torch.cat([
+                torch.repeat_interleave(normed_conditions, n_samples, dim=0),
+                #torch.from_numpy(np.repeat(normed_conditions.detach().numpy(), n_samples, axis=0)), (ALTERNATIVE TO LINE ABOVE)
                 normed_observations
             ], axis=1)
 
