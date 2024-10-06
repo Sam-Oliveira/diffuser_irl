@@ -1,6 +1,6 @@
 # Inverse Reinforcement Learning using Diffusion models in Trajectory Space
 
-This reposity contains the code for the MSc Thesis on using the [Diffuser](https://arxiv.org/abs/2205.09991) for Inverse Reinforcement Learning. The thesis can be accessed [here](https://drive.google.com/uc?export=view&id=1M3ydOSOkQenYHwZZajntXkzwea3SkFg4).
+This reposity contains the code for the MSc Thesis on using the [Diffuser](https://arxiv.org/abs/2205.09991) for Inverse Reinforcement Learning. The thesis can be accessed [here](https://drive.google.com/file/d/1fPKvR1gQBin58dITgiBOXqsKdk6Zevg1/view?usp=drive_link).
 
 This repo results from a fork from the original [Diffuser repository](https://github.com/jannerm/diffuser). 
 Development of our method for all environments was done in the original maze2d branch, and merged into the main branch at the end of the project.
@@ -47,7 +47,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
 
 The `scripts/` folder contains all the scripts to generate the results presented in the MSc Thesis. The `u_maze/` folder presents the scripts for experiments on the U-Maze Maze2D environment, the `large_maze/` folder contains the scripts for experiments on the Large Maze Maze2d environment, the `locomotion/` folder contains the scripts for the Mujoco Locomotion environments (including HalfCheetah), and the `evaluations/` folder contains code for performance (reward and ERC) analysis, and visualisation of learnt behaviour.
 
-#### Diffuser Training
+### Diffuser Training
 
 To train the Base Diffuser, run the appropriate script for your choice of environment.
 
