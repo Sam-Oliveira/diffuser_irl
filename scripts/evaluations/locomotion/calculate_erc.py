@@ -86,8 +86,6 @@ train_dataloader=DataLoader(dataset, batch_size=100, shuffle=False,num_workers=0
 
 
 #Getting value according to value function
-values_true=torch.empty((0))
-"""
 for data in train_dataloader:
     
     #Getting value according to value function
@@ -116,7 +114,7 @@ for data in train_dataloader:
         #print(total_reward)
         values_true=torch.cat((values_true,torch.unsqueeze(torch.from_numpy(np.asarray(total_reward)),dim=0)))
 torch.save(values_true,'logs/'+args.dataset+'/values_base_traj/values_True.pt')
-"""
+
 
 
 # TO CALCULATE METRICS AFTER VALUE FILES HAVE BEEN CREATED

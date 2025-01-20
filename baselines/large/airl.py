@@ -1,35 +1,22 @@
 import numpy as np
 import gymnasium as gym
-#import gym
 from stable_baselines3 import PPO
-from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.ppo import MlpPolicy
-
 from imitation.algorithms.adversarial.airl import AIRL
-from imitation.rewards.reward_nets import BasicRewardNet,BasicShapedRewardNet
+from imitation.rewards.reward_nets import BasicShapedRewardNet
 from imitation.util.networks import RunningNorm
-import json
 import torch
-import os
-
-from imitation.algorithms import bc
 from imitation.data import rollout
 from imitation.data.wrappers import RolloutInfoWrapper
-from imitation.policies.serialize import load_policy
 from imitation.util.util import make_vec_env
 from imitation.data.types import Trajectory
 import d4rl
 from gymnasium.spaces import Box
-from imitation.data.rollout import rollout as roll_traject
-from gymnasium import spaces
 from collections import OrderedDict
 import diffuser.utils as utils
 import diffuser.sampling as sampling
 from torch.utils.data import DataLoader
 from torch.utils.data import SubsetRandomSampler
-
-# NOTE! NEED TO INSTALL GYMNASIUM-ROBOTICS FOR THE UMAZE ENV!
-
 
 class Parser(utils.Parser):
     dataset: str = 'maze2d-large-v1'
@@ -49,11 +36,9 @@ env_imit = make_vec_env(
     post_wrappers=[lambda env, _: RolloutInfoWrapper(env)],  # for computing rollouts
 )
 
-object_methods = [method_name for method_name in dir(env_imit)
-                  if callable(getattr(env_imit, method_name))]
 env_imit.reset()
 
-
+# adapt env
 env_imit.unwrapped.observation_space=Box(-np.inf, np.inf, (4,), np.float64)
 od=OrderedDict()
 od['observation']=np.asarray([[1,1,0,0]])
@@ -63,6 +48,7 @@ env_imit.unwrapped.keys=['observation']
 
 observation_dim=4
 action_dim=2
+
 # Load expert trajectories
 expert_trajectories=torch.empty((0,384,observation_dim+action_dim))
 lists=[[0,1,3],[4],[5],[7],[2,6]]
@@ -165,7 +151,7 @@ policy_diff = policy_config()
 # CODE TO GET REWARDS OF BASE DIFFUSER TRAJ ACCORDING TO AIRL REWARD NET (USED TO CALCULATE ERC)
 subset_indices=[i for i in range(100)]
 train_dataloader=DataLoader(dataset, batch_size=1, shuffle=False,num_workers=0,sampler=SubsetRandomSampler(subset_indices))
-#print(reward_net.__dict__)
+
 values=torch.empty((0))
 for i,data in enumerate(train_dataloader):
     curr_reward=0

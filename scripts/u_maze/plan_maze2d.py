@@ -16,7 +16,6 @@ class Parser(utils.Parser):
 
 args = Parser().parse_args('plan')
 
-# logger = utils.Logger(args)
 
 #---------------------------------- loading ----------------------------------#
 
@@ -37,13 +36,13 @@ print('Resetting target')
 env.set_target()
 
 ## set conditioning xy position to be the goal
-target = env._target # I think this is simply whatever target the env has decided to. They never specify the target, or the start state. Both are random.
+target = env._target 
 cond = {
     diffusion.horizon - 1: np.array([*target, 0, 0]),
 }
 
 ## observations for rendering
-rollout = [observation.copy()] #1st observation I think
+rollout = [observation.copy()] #1st observation
 
 total_reward = 0
 
@@ -62,7 +61,6 @@ for t in range(env.max_episode_steps):
 
         #note it simply gets this sequence at t=0, but then keeos using it throughout. this is the state predictions.
         sequence = samples.observations[0].detach()
-    # pdb.set_trace()
 
     # ####
     if t < len(sequence) - 1:
@@ -74,18 +72,6 @@ for t in range(env.max_episode_steps):
 
     ## can use actions or define a simple controller based on state predictions (i.e. on "sequence" var that is the predictions done at t=0)
     action = next_waypoint[:2] - state[:2] + (next_waypoint[2:] - state[2:])
-    # pdb.set_trace()
-    ####
-
-    # else:
-    #     actions = actions[1:]
-    #     if len(actions) > 1:
-    #         action = actions[0]
-    #     else:
-    #         # action = np.zeros(2)
-    #         action = -state[2:]
-    #         pdb.set_trace()
-
 
     # terminal state is given (inpainting)
     next_observation, reward, terminal, _ = env.step(action.detach())
@@ -112,22 +98,13 @@ for t in range(env.max_episode_steps):
 
         if t == 0: renderer.composite(fullpath, samples.observations.detach(), ncol=1)
 
-
-        # renderer.render_plan(join(args.savepath, f'{t}_plan.mp4'), samples.actions, samples.observations, state)
-
         ## save rollout thus far
         renderer.composite(join(args.savepath, 'rollout.png'), np.array(rollout)[None], ncol=1)
-
-        # renderer.render_rollout(join(args.savepath, f'rollout.mp4'), rollout, fps=80)
-
-        # logger.video(rollout=join(args.savepath, f'rollout.mp4'), plan=join(args.savepath, f'{t}_plan.mp4'), step=t)
 
     if terminal:
         break
 
     observation = next_observation
-
-# logger.finish(t, env.max_episode_steps, score=score, value=0)
 
 ## save result as a json file
 json_path = join(args.savepath, 'rollout'+str(args.seed)+'.json')

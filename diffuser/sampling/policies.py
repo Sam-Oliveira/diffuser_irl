@@ -9,7 +9,7 @@ from diffuser.datasets.preprocessing import get_policy_preprocess_fn
 
 Trajectories = namedtuple('Trajectories', 'actions observations values')
 
-
+# Class for guided sampling
 class GuidedPolicy:
 
     def __init__(self, guide, diffusion_model, normalizer, preprocess_fns, **sample_kwargs):
@@ -34,7 +34,7 @@ class GuidedPolicy:
         ## extract action [ batch_size x horizon x transition_dim ]
         actions = trajectories[:, :, :self.action_dim]
         actions = self.normalizer.unnormalize(actions, 'actions')
-        ## extract first action (of first element of batch i believe)
+        ## extract first action (of first element of batch)
         action = actions[0, 0]
 
         normed_observations = trajectories[:, :, self.action_dim:]

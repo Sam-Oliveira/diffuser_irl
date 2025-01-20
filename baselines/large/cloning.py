@@ -1,25 +1,15 @@
 import numpy as np
 import gymnasium as gym
-#import gym
-from stable_baselines3.common.evaluation import evaluate_policy
-import json
 import torch
-import os
-from os.path import join
 
 from imitation.algorithms import bc
 from imitation.data import rollout
 from imitation.data.wrappers import RolloutInfoWrapper
-from imitation.policies.serialize import load_policy
 from imitation.util.util import make_vec_env
 from imitation.data.types import Trajectory
 import d4rl
 from gymnasium.spaces import Box
-from imitation.data.rollout import rollout as roll_traject
-from gymnasium import spaces
 from collections import OrderedDict
-
-# NOTE! NEED TO INSTALL GYMNASIUM-ROBOTICS FOR THE UMAZE ENV!
 
 from diffuser.guides.policies import Policy
 import diffuser.datasets as datasets
@@ -66,6 +56,7 @@ for i,list in enumerate(lists):
     exp_traj=exp_traj[list]
     expert_trajectories=torch.cat((expert_trajectories, exp_traj))
 
+# Adapt expert dataset to imitations package
 rollouts=[]
 for trajectory_index in range(expert_trajectories.shape[0]):
     rollouts.append(Trajectory(obs=np.asarray(expert_trajectories[trajectory_index,:,2:]),acts=np.asarray(expert_trajectories[trajectory_index,:-1,:2]),infos=None,terminal=True))
@@ -162,5 +153,4 @@ learnt_trajectories=learnt_trajectories.to(torch.float)
 
 # NOTE THAT THE VALUE FUNCTION NEEDS TO BE THE TRUE REWARD, NOT A REWARD MODEL USED FOR LEARNING
 values=value_function(learnt_trajectories,{'0':learnt_trajectories[:,0,:]},time)
-print(values)
 print("mean reward after training:", torch.mean(values),u"\u00B1",torch.std(values))

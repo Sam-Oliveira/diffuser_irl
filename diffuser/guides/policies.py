@@ -7,6 +7,7 @@ import diffuser.utils as utils
 
 Trajectories = namedtuple('Trajectories', 'actions observations')
 
+# Class for unguided sampling
 class Policy:
 
     def __init__(self, diffusion_model, normalizer):

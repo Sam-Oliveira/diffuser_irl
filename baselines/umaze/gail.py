@@ -1,18 +1,13 @@
 import numpy as np
 import gymnasium as gym
-#import gym
 from stable_baselines3 import PPO
-from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.ppo import MlpPolicy
-
 from imitation.algorithms.adversarial.gail import GAIL
 from imitation.rewards.reward_nets import BasicRewardNet
 from imitation.util.networks import RunningNorm
 import json
 import torch
 import os
-
-from imitation.algorithms import bc
 from imitation.data import rollout
 from imitation.data.wrappers import RolloutInfoWrapper
 from imitation.policies.serialize import load_policy

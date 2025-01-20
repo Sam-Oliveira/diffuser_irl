@@ -50,7 +50,7 @@ policy_config = utils.Config(
     diffusion_model=diffusion,
     normalizer=dataset.normalizer,
     preprocess_fns=args.preprocess_fns,
-    ## sampling kwargs (idk what these mean)
+    ## sampling kwargs
     sample_fn=sampling.n_step_guided_p_sample,
     n_guide_steps=args.n_guide_steps,
     t_stopgrad=args.t_stopgrad,
@@ -71,13 +71,13 @@ print('Resetting target')
 env.set_target()
 
 ## observations for rendering
-rollout = [observation.copy()] #1st observation I think
+rollout = [observation.copy()] #1st observation
 
 total_reward = 0
 trajectories=[]
 
 max_steps=env.max_episode_steps
-max_steps=300 #only for large maze. if not, it.s env.max steps which is 300
+max_steps=300
 
 for t in range(max_steps):
 
@@ -108,7 +108,6 @@ for t in range(max_steps):
     ## update rollout observations. Note this does not include actions! Rollout is a list of nparrays, each of them is the current state at a step
     rollout.append(next_observation.copy())
 
-    # logger.log(score=score, step=t)
     if t % args.vis_freq == 0 or terminal:
         fullpath = join(args.savepath, f'{t}'+str(args.seed)+'.png')
 
@@ -134,7 +133,7 @@ json_data = {'score': score, 'step': t, 'return': total_reward, 'term': terminal
 json.dump(json_data, open(json_path, 'w'), indent=2, sort_keys=True)
 
 
-# CODE TO PRINT REWARD FOR EACH COORDINATE IN MAZE
+# CODE TO PRINT TRUE REWARD FOR EACH COORDINATE IN MAZE
 
 for name,param in value_function.model.named_parameters():
     if name=='fc.weight':

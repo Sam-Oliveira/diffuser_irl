@@ -1,23 +1,14 @@
 import numpy as np
 import gymnasium as gym
-#import gym
 from stable_baselines3.common.evaluation import evaluate_policy
-import json
 import torch
-import os
-from os.path import join
 
 from imitation.algorithms import bc
 from imitation.data import rollout
 from imitation.data.wrappers import RolloutInfoWrapper
 from imitation.policies.serialize import load_policy
 from imitation.util.util import make_vec_env
-from imitation.data.types import Trajectory
 import d4rl
-from gymnasium.spaces import Box
-from imitation.data.rollout import rollout as roll_traject
-from gymnasium import spaces
-from collections import OrderedDict
 import diffuser.utils as utils
 
 class Parser(utils.Parser):
@@ -40,7 +31,8 @@ env = make_vec_env(
     env_make_kwargs={'exclude_current_positions_from_observation':False}
 )
 
-# This is the env with 18 obs. But dataset only has 100k obs, not 1M like for diffuser I believe
+# This is the env with 18 obs. But dataset only has 100k obs, not 1M like for diffuser
+
 expert = load_policy(
     "ppo-huggingface",
     organization="HumanCompatibleAI",

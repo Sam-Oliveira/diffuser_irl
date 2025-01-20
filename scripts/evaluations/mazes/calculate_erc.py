@@ -33,10 +33,6 @@ class Parser(utils.Parser):
 
 args = Parser().parse_args('guided_learning')
 
-# logger = utils.Logger(args)
-
-#env = datasets.load_environment(args.dataset)
-
 #---------------------------------- loading ----------------------------------#
 
 diffusion_experiment = utils.load_diffusion(args.logbase, args.dataset, args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)

@@ -1,7 +1,6 @@
 from collections import namedtuple
 import numpy as np
 import torch
-import pdb
 
 from .preprocessing import get_preprocess_fn
 from .d4rl import load_environment, sequence_dataset
@@ -40,10 +39,6 @@ class SequenceDataset(torch.utils.data.Dataset):
         self.n_episodes = fields.n_episodes
         self.path_lengths = fields.path_lengths
         self.normalize()
-
-        print(fields)
-        # shapes = {key: val.shape for key, val in self.fields.items()}
-        # print(f'[ datasets/mujoco ] Dataset fields: {shapes}')
 
     def normalize(self, keys=['observations', 'actions']):
         '''
@@ -90,7 +85,6 @@ class SequenceDataset(torch.utils.data.Dataset):
         batch = Batch(trajectories, conditions)
         return batch
 
-
 class GoalDataset(SequenceDataset):
 
     def get_conditions(self, observations):
@@ -101,7 +95,6 @@ class GoalDataset(SequenceDataset):
             0: observations[0],
             self.horizon - 1: observations[-1],
         }
-
 
 class ValueDataset(SequenceDataset):
     '''

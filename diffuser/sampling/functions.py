@@ -5,7 +5,7 @@ from diffuser.models.helpers import (
     apply_conditioning,
 )
 
-# THis function is used as the sampling function for guided sampling(instead of default_sample_fn() in diffusion.py). It only does 1 step of the reverse diffusion! 
+# THis function is used as the sampling function for guided sampling(instead of default_sample_fn() in diffusion.py). It guides 1 step of the reverse diffusion! 
 
 def n_step_guided_p_sample(
     model, x, cond, t, guide, scale=0.001, t_stopgrad=0, n_guide_steps=1, scale_grad_by_std=True, stop_grad=False

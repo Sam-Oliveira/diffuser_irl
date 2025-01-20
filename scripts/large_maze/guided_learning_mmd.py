@@ -55,9 +55,6 @@ guide_config = utils.Config(args.guide, model=value_function, verbose=False)
 guide = guide_config()
 
 
-# this was previously in unguided planning, but I dont think this works like that anymore
-#policy = Policy(diffusion, dataset.normalizer)
-
 
 ## policies are wrappers around an unconditional diffusion model and a value guide
 policy_config = utils.Config(
@@ -105,15 +102,11 @@ expert_trajectories=torch.stack(expert_trajectories,dim=0)
 #train_dataloader = DataLoader(expert_trajectories, batch_size=1, shuffle=True)
 
 # Arguments
-
 print(expert_trajectories.shape[0])
 epochs=500
 n_samples_per_epoch=expert_trajectories.shape[0]
 numb_exp_trajectories=len(expert_trajectories)
 
-
-        
-#loss = torch.nn.MSELoss()
 
 optimizer = torch.optim.Adam(value_function.model.parameters(), lr=2e-2)
 

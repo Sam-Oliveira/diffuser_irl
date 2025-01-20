@@ -85,7 +85,7 @@ start_points=[13,14,15]
 rollouts_per_start_point=3
 expert_trajectories=torch.empty((0,300,dataset.observation_dim+dataset.action_dim))
 for start in start_points:  
-    #DEPENDING ON ENVIRONMENT
+    
     path_to_json = 'logs/maze2d-umaze-v1/plans/guided_H128_T64_d0.995_LimitsNormalizer_b1_stop-gradFalse_condFalse_env_seed{seed}/0/'.format(seed=start)
     json_files = [pos_json for pos_json in os.listdir(path_to_json) if pos_json.startswith('rollout') and pos_json.endswith('.json')]
     for file in range(len(json_files)):

@@ -1,35 +1,20 @@
 import numpy as np
 import gymnasium as gym
-#import gym
 from stable_baselines3 import PPO
-from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.ppo import MlpPolicy
-
 from imitation.algorithms.adversarial.gail import GAIL
 from imitation.rewards.reward_nets import BasicRewardNet
 from imitation.util.networks import RunningNorm
-import json
 import torch
-import os
-
-from imitation.algorithms import bc
 from imitation.data import rollout
 from imitation.data.wrappers import RolloutInfoWrapper
-from imitation.policies.serialize import load_policy
 from imitation.util.util import make_vec_env
 from imitation.data.types import Trajectory
-import d4rl
 from gymnasium.spaces import Box
-from imitation.data.rollout import rollout as roll_traject
-from gymnasium import spaces
+import d4rl
 from collections import OrderedDict
 import diffuser.utils as utils
 import diffuser.sampling as sampling
-from torch.utils.data import DataLoader
-from torch.utils.data import SubsetRandomSampler
-
-# NOTE! NEED TO INSTALL GYMNASIUM-ROBOTICS FOR THE UMAZE ENV!
-
 
 class Parser(utils.Parser):
     dataset: str = 'maze2d-large-v1'
@@ -49,11 +34,10 @@ env_imit = make_vec_env(
     post_wrappers=[lambda env, _: RolloutInfoWrapper(env)],  # for computing rollouts
 )
 
-object_methods = [method_name for method_name in dir(env_imit)
-                  if callable(getattr(env_imit, method_name))]
 env_imit.reset()
 
 # Changing environment specification so it matches previous version of environment that we use in Diffuser codebaseenv_imit.unwrapped.observation_space=Box(-np.inf, np.inf, (4,), np.float64)
+env_imit.unwrapped.observation_space=Box(-np.inf, np.inf, (4,), np.float64)
 od=OrderedDict()
 od['observation']=env_imit.unwrapped.buf_obs['observation']
 env_imit.unwrapped.buf_obs=od
@@ -61,6 +45,7 @@ env_imit.unwrapped.keys=['observation'] #changed this from ['observation'] to No
 
 observation_dim=4
 action_dim=2
+
 # Load expert trajectories
 expert_trajectories=torch.empty((0,384,observation_dim+action_dim))
 lists=[[0,1,3],[4],[5],[7],[2,6]]
@@ -181,5 +166,4 @@ learnt_trajectories=learnt_trajectories.to(torch.float)
 
 # NOTE THAT THE VALUE FUNCTION NEEDS TO BE THE TRUE REWARD, NOT A REWARD MODEL USED FOR LEARNING
 values=value_function(learnt_trajectories,{'0':learnt_trajectories[:,0,:]},time)
-print(values)
 print("mean reward after training:", torch.mean(values),u"\u00B1",torch.std(values))

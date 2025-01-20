@@ -11,30 +11,6 @@ from .d4rl import load_environment
 #-------------------------------- general api --------------------------------#
 #-----------------------------------------------------------------------------#
 
-
-# CHANGED 1 FUNCTION INSIDE OTHER FUNCTION INTO 1 FUNCTION AND 1 CLASS. TO AVOID MULTIPROCESSING bug
-"""
-def _fn(x, fns):
-    for fn in fns:
-        x = fn(x)
-    return x
-
-class compose:
-    # this means it takes any amount of arguments, and the arguments get collected into tuple named fns
-    def __init__(self, *fns):
-        self.fns = fns
-
-    def __call__(self, x):
-        return _fn(x, self.fns)
-
-def _fn(fns,x):
-    for fn in fns:
-        x = fn(x)
-    return x
-
-def compose(*fns):
-    return functools.partial(_fn,fns)
-"""
 def compose(*fns):
 
     def _fn(x):

@@ -84,7 +84,7 @@ start_points=[13,14,15]
 expert_trajectories=torch.empty((0,300,dataset.observation_dim+dataset.action_dim),device=args.device)
 for start in start_points:  
 
-    #DEPENDING ON ENVIRONMENT
+
     path_to_json = 'logs/maze2d-umaze-v1/plans/guided_H128_T64_d0.995_LimitsNormalizer_b1_stop-gradFalse_condFalse_env_seed{seed}/0/'.format(seed=start)
     json_files = [pos_json for pos_json in os.listdir(path_to_json) if pos_json.startswith('rollout') and pos_json.endswith('.json')]
     for file in range(len(json_files)):
@@ -123,9 +123,6 @@ for e in range(epochs):
     curr_loss=0
     terms=0
 
-    
-    # FIRST ONE IS FOR BATCH DATA, BUT TRYING TO USE DATALOADER. ALSO NOW I HAVE CODE FOR DIFF CONDITIONING POINTS, SO I TRY TO DO IT AS IN MMD.
-    # ALSO NOTE FOR THIS CASE, WE DO ONLY 1 UPDATE STEP ISNTREAD OF 1 EVERY DATAPOINT LIKE IN BOTH CASES BELOW. SO WILL PROB NEED LARGER LEARNING RATE
     size_batch=8
     train_dataloader = DataLoader(expert_trajectories, batch_size=size_batch, shuffle=False,num_workers=0)
     for targets in train_dataloader:

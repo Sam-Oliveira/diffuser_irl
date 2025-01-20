@@ -14,42 +14,12 @@ from .helpers import (
     Losses,
 )
 
-
-Sample = namedtuple('Sample', 'trajectories values chains')
-
-
-@torch.no_grad()
-def default_sample_fn(model, x, cond, t):
-    model_mean, _, model_log_variance = model.p_mean_variance(x=x, cond=cond, t=t)
-    model_std = torch.exp(0.5 * model_log_variance)
-
-    # no noise when t == 0
-    noise = torch.randn_like(x)
-    noise[t == 0] = 0
-
-    values = torch.zeros(len(x), device=x.device)
-    return model_mean + model_std * noise, values
-
-
-def sort_by_values(x, values):
-    inds = torch.argsort(values, descending=True)
-    x = x[inds]
-    values = values[inds]
-    return x, values
-
-
-def make_timesteps(batch_size, i, device):
-    t = torch.full((batch_size,), i, device=device, dtype=torch.long)
-    return t
-
-
-
 Sample = namedtuple('Sample', 'trajectories values chains')
 
 
 # function that does one reverse step
 @torch.no_grad()
-def default_sample_fn(model, x, cond, t): #ADDED FOR NOTEBOOK (RETURN_DIFFUSION=False as argument)
+def default_sample_fn(model, x, cond, t): # for NOTEBOOK, add RETURN_DIFFUSION=False as argument
     model_mean, _, model_log_variance = model.p_mean_variance(x=x, cond=cond, t=t)
     model_std = torch.exp(0.5 * model_log_variance)
 
@@ -179,7 +149,6 @@ class GaussianDiffusion(nn.Module):
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
 
     
-    # Why does it use the mean and variance of q_posterior to get the mean and variance for p? 
     def p_mean_variance(self, x, cond, t):
         x_recon = self.predict_start_from_noise(x, t=t, noise=self.model(x, cond, t))
 
@@ -365,11 +334,11 @@ class GaussianDiffusion_for_guide(nn.Module):
         return loss_weights
 
     #------------------------------------------ sampling ------------------------------------------#
-    # FORMULA FOR x_0 based on x_t and epsilon (see my maths)
+    # formula for x_0 based on x_t and epsilon
     def predict_start_from_noise(self, x_t, t, noise):
         '''
-            if self.predict_epsilon, model output is (scaled) noise; #why scaled??
-            otherwise, model predicts x0 directly  (ISNT IT ACTUALLY THE OPPOSITE???)
+            if self.predict_epsilon, model output is (scaled) noise;
+            otherwise, model predicts x0 directly
         '''
         if self.predict_epsilon:
             return (
@@ -406,7 +375,7 @@ class GaussianDiffusion_for_guide(nn.Module):
                 x_start=x_recon, x_t=x, t=t)
         return model_mean, posterior_variance, posterior_log_variance
     
-    # i.e. get samples of x_0 starting from x_T, I think. This is used after training. Note sample function is diff for guided planning.
+    # i.e. get samples of x_0 starting from x_T. This is used after training. Note sample function is diff for guided planning.
     #ADDED FOR NOTEBOOK (return_chain=True)
     def p_sample_loop(self, shape, cond, verbose=True, return_chain=False, sample_fn=default_sample_fn, **sample_kwargs):
         device = self.betas.device

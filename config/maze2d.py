@@ -340,13 +340,6 @@ base = {
 
 #------------------------ overrides ------------------------#
 
-'''
-    maze2d maze episode steps:
-        umaze: 150
-        medium: 250
-        large: 600
-'''
-
 maze2d_umaze_v1 = {
     'diffusion': {
         'horizon': 128,

@@ -85,17 +85,15 @@ start_points=torch.from_numpy(np.asarray([
 ]))
 
 
-#envs.observations=start_points.repeat(int(num_envs/start_points.shape[0]),1).detach().cpu().numpy()
 envs.observations=torch.repeat_interleave(start_points,int(num_envs/start_points.shape[0]),0).detach().cpu().numpy()
 
 
-#print(envs.__dict__)
 for i,environ in enumerate(envs.envs):
     environ.set_state(envs.observations[i,:2],envs.observations[i,2:])
 
 
 ## observations for rendering
-rollout = [envs.observations.copy()] #1st observation I think
+rollout = [envs.observations.copy()] #1st observation
 
 total_reward = 0
 trajectories=[]

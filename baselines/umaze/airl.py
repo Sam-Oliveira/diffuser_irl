@@ -1,27 +1,19 @@
 import numpy as np
 import gymnasium as gym
-#import gym
 from stable_baselines3 import PPO
-from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.ppo import MlpPolicy
-
 from imitation.algorithms.adversarial.airl import AIRL
-from imitation.rewards.reward_nets import BasicRewardNet,BasicShapedRewardNet
+from imitation.rewards.reward_nets import BasicShapedRewardNet
 from imitation.util.networks import RunningNorm
 import json
 import torch
 import os
-
-from imitation.algorithms import bc
 from imitation.data import rollout
 from imitation.data.wrappers import RolloutInfoWrapper
-from imitation.policies.serialize import load_policy
 from imitation.util.util import make_vec_env
 from imitation.data.types import Trajectory
 import d4rl
 from gymnasium.spaces import Box
-from imitation.data.rollout import rollout as roll_traject
-from gymnasium import spaces
 from collections import OrderedDict
 import diffuser.utils as utils
 import diffuser.sampling as sampling
@@ -49,15 +41,14 @@ env = make_vec_env(
     post_wrappers=[lambda env, _: RolloutInfoWrapper(env)],  # for computing rollouts
 )
 
-object_methods = [method_name for method_name in dir(env)
-                  if callable(getattr(env, method_name))]
 env.reset()
+
 # Changing environment specification so it matches previous version of environment that we use in Diffuser codebase
 env.unwrapped.observation_space=Box(-np.inf, np.inf, (4,), np.float64)
 od=OrderedDict()
 od['observation']=env.unwrapped.buf_obs['observation']
 env.unwrapped.buf_obs=od
-env.unwrapped.keys=['observation'] #changed this from ['observation'] to None when I added line 62, but everything worked before changing this
+env.unwrapped.keys=['observation']
 
 # Loading expert trajectories
 start_points=[13,14,15]
@@ -65,7 +56,7 @@ rollouts_per_start_point=3
 observation_dim=4
 action_dim=2
 expert_trajectories=torch.empty((0,300,observation_dim+action_dim))
-for start in start_points:  
+for start in start_points:
     path_to_json = 'logs/maze2d-umaze-v1/plans/guided_H128_T64_d0.995_LimitsNormalizer_b1_stop-gradFalse_condFalse_env_seed{seed}/0/'.format(seed=start)
     json_files = [pos_json for pos_json in os.listdir(path_to_json) if pos_json.startswith('rollout') and pos_json.endswith('.json')]
     for file in range(len(json_files)):
@@ -78,6 +69,7 @@ for start in start_points:
 
 rollouts=[]
 
+# Format data according to imitations package
 for trajectory_index in range(expert_trajectories.shape[0]):
     rollouts.append(Trajectory(obs=np.asarray(expert_trajectories[trajectory_index,:,2:]),acts=np.asarray(expert_trajectories[trajectory_index,:-1,:2]),infos=None,terminal=True))
 
@@ -93,6 +85,7 @@ learner = PPO(
     n_epochs=5,
     seed=seed,
 )
+
 reward_net = BasicShapedRewardNet(
     observation_space=env.observation_space,
     action_space=env.action_space,
@@ -120,7 +113,7 @@ policy=rollout.policy_to_callable(airl_trainer.policy,env)
 # Save 
 torch.save(airl_trainer.policy,'logs/'+args.dataset+'/learnt_behaviour/AIRL/weights.pt')
 
-# TEST THE LEARNT BC ALGORITHM ON U-MAZE: we generate trajectories from specified start points based on the learnt policy,
+# Test the learnt BC algorithm on the U-maze: we generate trajectories from specified start points based on the learnt policy,
 # and then use the true reward model to evaluate reward of these trajectories (note the true reward model "weights" must be loaded)
 
 # For U-Maze
@@ -172,7 +165,7 @@ policy_diff = policy_config()
 # CODE TO GET REWARDS OF BASE DIFFUSER TRAJECTORIES ACCORDING TO AIRL REWARD NET (USED TO CALCULATE ERC)
 subset_indices=[i for i in range(100)]
 train_dataloader=DataLoader(dataset, batch_size=1, shuffle=False,num_workers=0,sampler=SubsetRandomSampler(subset_indices))
-#print(reward_net.__dict__)
+
 values=torch.empty((0))
 for i,data in enumerate(train_dataloader):
     curr_reward=0
@@ -208,5 +201,4 @@ learnt_trajectories=learnt_trajectories.to(torch.float)
 
 # NOTE THAT THE VALUE FUNCTION NEEDS TO BE THE TRUE REWARD, NOT A REWARD MODEL USED FOR LEARNING
 values=value_function(learnt_trajectories,{'0':learnt_trajectories[:,0,:]},time)
-print(values)
 print("mean reward after training:", torch.mean(values),u"\u00B1",torch.std(values))
