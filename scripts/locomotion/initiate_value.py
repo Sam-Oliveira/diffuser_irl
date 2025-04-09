@@ -1,5 +1,6 @@
 import diffuser.utils as utils
 import pdb
+import torch
 
 
 #-----------------------------------------------------------------------------#
@@ -50,9 +51,6 @@ model_config = utils.Config(
     args.model,
     savepath=(args.savepath, 'model_config.pkl'),
     horizon=args.horizon,
-    transition_dim=observation_dim + action_dim,
-    cond_dim=observation_dim,
-    dim_mults=args.dim_mults,
     device=args.device,
 )
 
@@ -88,10 +86,10 @@ trainer_config = utils.Config(
 #-----------------------------------------------------------------------------#
 
 model = model_config()
-
+print(model)
 diffusion = diffusion_config(model)
 
-trainer = trainer_config(diffusion, dataset, renderer)
+trainer = trainer_config(model, dataset, renderer)
 
 #-----------------------------------------------------------------------------#
 #------------------------ test forward & backward pass -----------------------#
@@ -113,4 +111,5 @@ print('✓')
 #-----------------------------------------------------------------------------#
 
 # Just save untrained model checkpoint
-trainer.save(0)
+torch.save(model.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/'+'state_0.pt')
+#trainer.save(0)

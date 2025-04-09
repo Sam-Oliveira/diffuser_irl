@@ -16,12 +16,19 @@ def n_step_guided_p_sample(
     model_log_variance = extract(model.posterior_log_variance_clipped, t, x.shape)
     model_std = torch.exp(0.5 * model_log_variance)
     model_var = torch.exp(model_log_variance)
-
+    #if any(t==19):
+    #    print(x)
     # just about how many steps we take in direction of guide gradient I think
     for _ in range(n_guide_steps):
         with torch.enable_grad():
             y, grad = guide.gradients(x, stop_grad,cond, t)
         if scale_grad_by_std:
+            #print(model_var[0])
+            #print('here')
+            #print(x.shape)
+            #print(torch.mean(x))
+            #print(torch.mean(model_var))
+            #print(torch.mean(grad))
             grad = model_var * grad
         #grad.register_hook(lambda grad: print(torch.norm(grad)))
         #grad.register_hook(lambda grad: print(grad))

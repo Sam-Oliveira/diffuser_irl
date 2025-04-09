@@ -60,7 +60,7 @@ total_reward = 0
 max_steps=env.max_episode_steps
 trajectories=[]
 #max_steps=128
-#max_steps=200
+max_steps=200
 for t in range(max_steps):
 
     if t % 10 == 0: print(args.savepath, flush=True)

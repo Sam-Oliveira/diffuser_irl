@@ -9,7 +9,6 @@ import gym
 import mujoco_py as mjc
 import warnings
 import pdb
-
 from .arrays import to_np
 from .video import save_video, save_videos
 
@@ -86,6 +85,7 @@ class MuJoCoRenderer:
     '''
 
     def __init__(self, env):
+        #torch.set_default_device('cpu')
         if type(env) is str:
             env = env_map(env)
             self.env = gym.make(env)
@@ -95,11 +95,17 @@ class MuJoCoRenderer:
         ## @TODO : clean up
         self.observation_dim = np.prod(self.env.observation_space.shape) - 1
         self.action_dim = np.prod(self.env.action_space.shape)
+
+        # Had to comment these 5 lines out for fluidstack GPU to work. ran into "segmentation fault (core dumped)" error.
+        # but then rendering doesnt work
+        '''
         try:
-            self.viewer = mjc.MjRenderContextOffscreen(self.env.sim)
+            self.viewer = mjc.MjRenderContextOffscreen(self.env.sim,)
         except:
             print('[ utils/rendering ] Warning: could not initialize offscreen renderer')
             self.viewer = None
+        '''
+        self.viewer=None
 
     def pad_observation(self, observation):
         state = np.concatenate([
@@ -121,7 +127,6 @@ class MuJoCoRenderer:
         return states
 
     def render(self, observation, dim=256, partial=False, qvel=True, render_kwargs=None, conditions=None):
-
         if type(dim) == int:
             dim = (dim, dim)
 

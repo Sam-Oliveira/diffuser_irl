@@ -36,7 +36,7 @@ dataset = value_experiment.dataset
 renderer = diffusion_experiment.renderer
 
 ## initialize value guide
-value_function = value_experiment.ema
+value_function = value_experiment.model
 
 #ValueGuide (guiddes.py) takes ValueFunction (temporal.py) as its model
 guide_config = utils.Config(args.guide, model=value_function, verbose=False)
@@ -51,14 +51,13 @@ logger_config = utils.Config(
     max_render=args.max_render,
 )
 
-
 ## policies are wrappers around an unconditional diffusion model and a value guide
 policy_config = utils.Config(
-    args.policy,
+    'sampling.GuidedPolicy_norm',
     guide=guide,
     scale=args.scale,
     diffusion_model=diffusion,
-    normalizer=dataset.normalizer,
+    normalizer=diffusion_experiment.dataset.normalizer,
     preprocess_fns=args.preprocess_fns,
     ## sampling kwargs (idk what these mean)
     sample_fn=sampling.n_step_guided_p_sample,
@@ -90,12 +89,15 @@ trajectories=[]
 max_steps=env.max_episode_steps
 #max_steps=128
 #max_steps=200
-max_steps=20
+max_steps=200
 for t in range(max_steps):
 
     if t % 10 == 0: print(args.savepath, flush=True)
 
+    conditioning_obs=policy.normalizer.normalize(observation, 'observations')
 
+    ## format current observation for conditioning (NO IMPAINTING)
+    conditions = {0: conditioning_obs}
     ## save state for rendering only
     state = env.state_vector().copy()
 
@@ -105,16 +107,16 @@ for t in range(max_steps):
 
 
     ## format current observation for conditioning (NO IMPAINTING)
-    conditions = {0: observation}
+    #conditions = {0: observation}
     
     #i think basically we take 1 step, and plan again every time! (in rollout image. in plan, it's just the plan at first step)
-    action, samples = policy(conditions, batch_size=args.batch_size, verbose=args.verbose)
+    action, samples,_ = policy(conditions, batch_size=args.batch_size, verbose=args.verbose)
 
 
     trajectories.append(np.concatenate((action.detach().cpu().numpy(),observation)))
 
     ## execute action in environment
-    next_observation, reward, terminal, _ = env.step(action.detach().cpu().numpy())
+    next_observation, reward, terminal, _ = env.step(samples.actions[:,0].detach().cpu().numpy())
 
     ## print reward and score
     total_reward += reward

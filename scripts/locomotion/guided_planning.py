@@ -3,11 +3,12 @@ import numpy as np
 from os.path import join
 import pdb
 import torch
-
+from torch.utils.data import DataLoader
 from diffuser.guides.policies import Policy
 import diffuser.datasets as datasets
 import diffuser.utils as utils
 import diffuser.sampling as sampling
+
 
 
 class Parser(utils.Parser):
@@ -23,7 +24,7 @@ args = Parser().parse_args('guided_plan')
 
 diffusion_experiment = utils.load_diffusion(args.logbase, 'halfcheetah-medium-replay-v2', args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
 
-value_experiment = utils.load_diffusion(
+value_experiment = utils.load_diffusion_learnt_reward(
     args.loadbase, args.dataset, args.value_loadpath,
     epoch=args.value_epoch, seed=args.env_seed,
 )
@@ -37,6 +38,7 @@ renderer = diffusion_experiment.renderer
 
 ## initialize value guide
 value_function = value_experiment.ema
+value_function.eval()
 
 #ValueGuide (guiddes.py) takes ValueFunction (temporal.py) as its model
 guide_config = utils.Config(args.guide, model=value_function, verbose=False)
@@ -50,7 +52,9 @@ logger_config = utils.Config(
     vis_freq=args.vis_freq,
     max_render=args.max_render,
 )
-
+print('here12')
+print(diffusion_experiment.dataset.normalizer)
+print(value_experiment.dataset.normalizer)
 
 ## policies are wrappers around an unconditional diffusion model and a value guide
 policy_config = utils.Config(
@@ -58,7 +62,7 @@ policy_config = utils.Config(
     guide=guide,
     scale=args.scale,
     diffusion_model=diffusion,
-    normalizer=dataset.normalizer,
+    normalizer=diffusion_experiment.dataset.normalizer,
     preprocess_fns=args.preprocess_fns,
     ## sampling kwargs (idk what these mean)
     sample_fn=sampling.n_step_guided_p_sample,
@@ -90,6 +94,7 @@ trajectories=[]
 max_steps=env.max_episode_steps
 #max_steps=128
 #max_steps=200
+
 for t in range(max_steps):
 
     if t % 10 == 0: print(args.savepath, flush=True)

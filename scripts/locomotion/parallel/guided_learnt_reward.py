@@ -37,7 +37,7 @@ dataset = value_experiment.dataset
 renderer = diffusion_experiment.renderer
 
 ## initialize value guide
-value_function = value_experiment.ema
+value_function = value_experiment.model
 
 #ValueGuide (guiddes.py) takes ValueFunction (temporal.py) as its model
 guide_config = utils.Config(args.guide, model=value_function, verbose=False)
@@ -55,11 +55,11 @@ logger_config = utils.Config(
 
 ## policies are wrappers around an unconditional diffusion model and a value guide
 policy_config = utils.Config(
-    args.policy,
+    'sampling.GuidedPolicy_norm',
     guide=guide,
     scale=args.scale,
     diffusion_model=diffusion,
-    normalizer=dataset.normalizer,
+    normalizer=diffusion_experiment.dataset.normalizer,
     preprocess_fns=args.preprocess_fns,
     ## sampling kwargs (idk what these mean)
     sample_fn=sampling.n_step_guided_p_sample,
@@ -75,7 +75,7 @@ policy = policy_config()
 
 #---------------------------------- main loop ----------------------------------#
 env=dataset.env
-num_envs=20
+num_envs=100
 
 # create multiple envs
 envs=gym.vector.SyncVectorEnv([
@@ -95,38 +95,26 @@ trajectories=[]
 
 max_steps=env.max_episode_steps
 #max_steps=128
-#max_steps=200
-max_steps=5
+max_steps=200
+#max_steps=5
 learnt_trajectories=torch.empty((num_envs,max_steps,dataset.observation_dim+dataset.action_dim))
 for t in range(max_steps):
 
     if t % 10 == 0: print(args.savepath, flush=True)
 
-
+    conditioning_obs=policy.normalizer.normalize(observation, 'observations')
+    conditions = {0: conditioning_obs}
     ## save state for rendering only
     state=envs.observations.copy()
 
-    ## IMPAINTING
-    #target = env._target 
-    #conditions = {0: observation,diffusion.horizon - 1: np.array([*target, 0, 0])}
-
-
-    ## format current observation for conditioning (NO IMPAINTING)
-    conditions = {0: envs.observations}
-
     #i think basically we take 1 step, and plan again every time! (in rollout image. in plan, it's just the plan at first step)
-    action, samples = policy(conditions, batch_size=args.batch_size,diff_conditions=True,verbose=args.verbose)
-    
-
-    actions=torch.squeeze(samples.actions[:,0,:]).detach().cpu().numpy()
-    trajectories.append(np.concatenate((actions,envs.observations),axis=-1))
-    learnt_trajectories[:,t,:]=(torch.cat((torch.from_numpy(actions),torch.from_numpy(envs.observations)),axis=-1))
-
+    action, samples,_ = policy(conditions, batch_size=args.batch_size,diff_conditions=True,verbose=False)
 
     next_observation, reward, terminal, _ = envs.step(samples.actions[:,0].detach().cpu().numpy())
-
     ## print reward and score
     total_reward += reward
+    print('t: ',t,"mean reward",np.mean(reward))
+    print('t: ',t,"mean return",np.mean(total_reward))
 
     ## update rollout observations. Note this does not include actions! Rollout is a list of nparrays, each of them is the current state at a step
     rollout.append(next_observation.copy())
@@ -141,6 +129,9 @@ for t in range(max_steps):
 
     if terminal.any():
         break
+    observation = next_observation
+
+
 
 ## write results to json file at `args.savepath`
 logger.finish(t, 0, total_reward.tolist(), bool(terminal.any()), diffusion_experiment, value_experiment)

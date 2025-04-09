@@ -160,7 +160,6 @@ class Trainer(object):
         data = torch.load(loadpath)
         #print(data)
         self.step = data['step']
-
         # WILL PROBABLY HAVE TO CHANGE THIS SO MODELS ARE LOADED FOR EVAL WHEN I'M TRYING TO DO GUIDED PLANNING
         self.model.load_state_dict(data['model'])
         self.ema_model.load_state_dict(data['ema'])
@@ -170,7 +169,9 @@ class Trainer(object):
             loads model and ema from disk
         '''
         loadpath = os.path.join(self.logdir, f'state_{epoch}.pt')
+
         data = torch.load(loadpath)
+
         self.model.load_state_dict(data)
 
 

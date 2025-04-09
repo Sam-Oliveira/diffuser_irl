@@ -41,7 +41,6 @@ class Policy:
 
     def __call__(self, conditions, debug=False, batch_size=1,diff_conditions=False):
 
-
         conditions = self._format_conditions(conditions, batch_size,diff_conditions)
 
         ## batchify and move to tensor [ batch_size x observation_dim ]

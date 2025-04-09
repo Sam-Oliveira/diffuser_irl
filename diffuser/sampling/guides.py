@@ -19,10 +19,10 @@ class ValueGuide(nn.Module):
         y = self(x, *args) # this calls ValueDiffusion
 
         #create_graph=True makes it so that a second derivative (now w.r.t. value model parameters) can be taken
+        #grad=torch.zeros_like(grad)
         grad = torch.autograd.grad([y.sum()], [x],create_graph=True)[0]
-
-        if stop_grad:
-            grad=torch.zeros_like(grad)
+        #if stop_grad:
+        #grad=torch.zeros_like(grad)
             #print(grad)
 
         # added to try not to break comp graph

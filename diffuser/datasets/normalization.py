@@ -23,6 +23,8 @@ class DatasetNormalizer:
 
         self.normalizers = {}
         for key, val in dataset.items():
+            print(key)
+            print(val.shape)
             try:
                 self.normalizers[key] = normalizer(val)
             except:
@@ -147,7 +149,12 @@ class GaussianNormalizer(Normalizer):
         )
 
     def normalize(self, x):
-        return (x - self.means) / self.stds
+        if torch.is_tensor(x):
+            stds=torch.from_numpy(self.stds).to(x.device)
+            means=torch.from_numpy(self.means).to(x.device)
+            return (x - means) / stds
+        else:
+            return (x-self.means)/self.stds
 
     def unnormalize(self, x):
         stds=torch.from_numpy(self.stds).to(x.device)
@@ -174,13 +181,11 @@ class LimitsNormalizer(Normalizer):
         if x.max() > 1 + eps or x.min() < -1 - eps:
             # print(f'[ datasets/mujoco ] Warning: sample out of range | ({x.min():.4f}, {x.max():.4f})')
             #x = np.clip(x, -1, 1)
-            x = torch.clamp(x,-1,1) # added this instead of line above because it started only throwing random error midway through guided with learnt reward locally, saying it couldnt turn a tensor with grad into numpy
-
-        ## [ -1, 1 ] --> [ 0, 1 ]
+            x = torch.clamp(x,-1,1) # added this instead of line above to allow for guided with learnt reward
+            ## [ -1, 1 ] --> [ 0, 1 ]
         x = (x + 1) / 2.
-        min=torch.from_numpy(self.mins).to(DEVICE)
-        max=torch.from_numpy(self.maxs).to(DEVICE)
-        return x * (max - min) + min
+
+        return x * (torch.from_numpy(self.maxs) - torch.from_numpy(self.mins)) + torch.from_numpy(self.mins)
         #return x * (torch.from_numpy(self.maxs) - torch.from_numpy(self.mins)) + torch.from_numpy(self.mins) (previously. But now doesnt work in cluster for unguided planning)
 
 class SafeLimitsNormalizer(LimitsNormalizer):

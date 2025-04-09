@@ -79,7 +79,7 @@ def load_diffusion_learnt_reward(*loadpath, epoch='latest', device='cuda:0', see
     renderer = render_config()
     model = model_config()
     diffusion = diffusion_config(model)
-    trainer = trainer_config(diffusion, dataset, renderer)
+    trainer = trainer_config(model, dataset, renderer)
 
     if epoch == 'latest':
         epoch = get_latest_epoch(loadpath)

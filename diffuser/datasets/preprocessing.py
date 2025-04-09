@@ -13,7 +13,7 @@ from .d4rl import load_environment
 
 
 # CHANGED 1 FUNCTION INSIDE OTHER FUNCTION INTO 1 FUNCTION AND 1 CLASS. TO AVOID MULTIPROCESSING bug
-"""
+
 def _fn(x, fns):
     for fn in fns:
         x = fn(x)
@@ -43,7 +43,7 @@ def compose(*fns):
         return x
 
     return _fn
-
+"""
 
 def get_preprocess_fn(fn_names, env):
     fns = [eval(name)(env) for name in fn_names]

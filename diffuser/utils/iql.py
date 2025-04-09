@@ -29,7 +29,6 @@ class JaxWrapper:
 
     def __init__(self, env, loadpath, *args, **kwargs):
         self.model = load_q(env, loadpath)
-
     @functools.partial(jax.jit, static_argnames=('self'), device=jax.devices('cpu')[0])
     def forward(self, xs):
         Qs = self.model(*xs)

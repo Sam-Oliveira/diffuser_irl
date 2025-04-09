@@ -184,7 +184,7 @@ class GaussianDiffusion(nn.Module):
         batch_size = shape[0]
         x = torch.randn(shape, device=device,requires_grad=True)
         x = apply_conditioning(x, cond, self.action_dim)
-
+    
         if return_diffusion: diffusion = [x]
 
         progress = utils.Progress(self.n_timesteps) if verbose else utils.Silent()
@@ -391,7 +391,7 @@ class GaussianDiffusion_for_guide(nn.Module):
         batch_size = shape[0]
         x = torch.randn(shape, device=device,requires_grad=True)
         #x.register_hook(lambda grad: print(grad))
-        x = apply_conditioning(x, cond, self.action_dim)
+        x = apply_conditioning(x, cond, self.action_dim) 
 
         chain = [x] if return_chain else None
 
