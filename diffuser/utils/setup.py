@@ -159,6 +159,8 @@ class Parser(Tap):
     def mk_sweep_dir(self,args,config):
         if 'logbase' in dir(args) and 'dataset' in dir(args) and 'exp_name' in dir(args):
             args.new_path=''
+            if args.base_dataset:
+                args.new_path=args.base_dataset+"_"
             for key,val in config.items():
                 args.new_path+='{h}_{f}_'.format(h=key,f=val)
             args.value_path = os.path.join(args.logbase, args.dataset, args.new_path)

@@ -1,2 +1,2 @@
-from .temporal import TemporalUnet, ValueFunction,ValueFunction_Mujoco,ValueFunction_1Layer,TrueReward,ValueFunction_4Layer_UMaze,ValueFunction_4Layer_LargeMaze
+from .temporal import TemporalUnet, ValueFunction,ValueFunction_Mujoco,ValueFunction_1Layer,TrueReward,ValueFunction_4Layer_UMaze,ValueFunction_4Layer_LargeMaze,ValueFunction_Hopper
 from .diffusion import GaussianDiffusion, ValueDiffusion, GaussianDiffusion_for_guide

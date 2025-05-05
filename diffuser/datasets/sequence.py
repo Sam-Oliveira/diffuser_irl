@@ -89,7 +89,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         return batch
     
 class Dataset_medium_replay_norm():
-    def __init__(self, env='hopper-medium-replay', horizon=64,
+    def __init__(self, base_env='halfcheetah-medium-replay-v2' , env='halfcheetah-expert-v2', horizon=64,
         normalizer='LimitsNormalizer', preprocess_fns=[], max_path_length=1000,
         max_n_episodes=10000, termination_penalty=0, use_padding=True,seed=0):
         self.preprocess_fn = get_preprocess_fn(preprocess_fns, env)
@@ -106,7 +106,7 @@ class Dataset_medium_replay_norm():
         fields.finalize()
 
         # get medium-replay dataset
-        itr_mr = sequence_dataset(load_environment('halfcheetah-medium-replay-v2'), self.preprocess_fn)
+        itr_mr = sequence_dataset(load_environment(base_env), self.preprocess_fn)
 
         fields_mr = ReplayBuffer(max_n_episodes, max_path_length, termination_penalty)
         for i, episode in enumerate(itr_mr):

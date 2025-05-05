@@ -404,13 +404,49 @@ base = {
 
 ## put environment-specific overrides here
 
-hopper_medium_expert_v2 = {
-    'guided_plan': {
-        'scale': 0.0001,
-        't_stopgrad': 4,
+
+
+hopper_medium_expert_v2 = hopper_medium_replay_v2 = hopper_expert_v2 = hopper_medium_v2 = {
+    'init_values': {
+        'value_model': 'models.ValueFunction_Hopper',
+    },
+    'guided_learning':{
+       'value_model': 'models.ValueFunction_Hopper',
+       'scale_grad_by_std': False,
+       'attention': False,
+       't_stopgrad': 0,
+       'n_guide_steps': 1,
+       #'scale':1,
+    },
+    'guided_learnt_reward':{
+        'scale_grad_by_std':True,
+        'scale':0.000001,
+        #'scale':0.000000000000000001,
+        'n_guide_steps': 1,
+        't_stopgrad': 0,
+        'horizon': 32,
+        
     },
 }
 
+walker2d_medium_expert_v2 = walker2d_medium_replay_v2 = walker2d_expert_v2 = walker2d_medium_v2 = {
+    'guided_learning':{
+       'scale_grad_by_std': False,
+       'attention': False,
+       't_stopgrad': 0,
+       'n_guide_steps': 1,
+       #'scale':1,
+    },
+    'guided_learnt_reward':{
+        'scale_grad_by_std':True,
+        'scale':0.000001,
+        #'scale':0.000000000000000001,
+        'n_guide_steps': 1,
+        't_stopgrad': 0,
+        'horizon': 32,
+        
+    },
+}
 
 halfcheetah_medium_replay_v2 = halfcheetah_medium_v2 = halfcheetah_medium_expert_v2 = halfcheetah_expert_v2= {
     'diffusion': {
@@ -425,15 +461,16 @@ halfcheetah_medium_replay_v2 = halfcheetah_medium_v2 = halfcheetah_medium_expert
         'attention': True,
         # IF HORIZON IS 4, THEN DIM_MULTS SHOULD BE (1, 4, 8). OTHERWISE (1, 2,4, 8)
         # THIS IS BECAUSE OF ATTENTION. IF WITHOUT ATTENTION, DOESNT MATTER, EITHER HORIZON WORKS WITH (1,2,4,8)
-        'dim_mults': (1, 4, 8),
+        #'dim_mults': (1, 4, 8),
     },
     'unguided_plan': {
-        #'horizon': 4,
-        'dim_mults': (1, 4, 8),
+        'horizon': 4,
+        #'dim_mults': (1, 4, 8),
     },
     'init_values': {
-        'horizon': 32,
-        'dim_mults': (1, 4, 8),
+        'horizon': 4,
+        #'dim_mults': (1, 4, 8),
+
     },
     'guided_plan': {
         #'horizon': 4,
@@ -453,11 +490,12 @@ halfcheetah_medium_replay_v2 = halfcheetah_medium_v2 = halfcheetah_medium_expert
     },
     'guided_learnt_reward':{
         'scale_grad_by_std':True,
-        'scale':0.1,
+        'scale':0.000001,
         #'scale':0.000000000000000001,
         'n_guide_steps': 1,
         't_stopgrad': 0,
         'horizon': 4,
+        
         #'scale': 0.001,
         #'t_stopgrad': 0,
     },

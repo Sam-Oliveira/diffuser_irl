@@ -12,47 +12,10 @@ from pathlib import Path
 from diffuser.guides.policies import Policy
 
 class Parser(utils.Parser):
+    base_dataset: str = 'halfcheetah-medium-replay-v2'
     dataset: str = 'halfcheetah-expert-v2'
     config: str = 'config.locomotion'
 
-
-def table_dataset_stats(dataset,*datasets):
-    import pandas as pd
-    normed_observations_mean=np.round(np.mean(dataset.fields.normed_observations,axis=(0,1)),2)
-    normed_observations_std=np.round(np.std(dataset.fields.normed_observations,axis=(0,1)),2)
-    normed_actions_mean=np.round(np.mean(dataset.fields.normed_actions,axis=(0,1)),2)   
-    normed_actions_std=np.round(np.std(dataset.fields.normed_actions,axis=(0,1)),2)
-    normed_observations_string_mean=[str(element) for element in normed_observations_mean]
-    normed_observations_string_std=[str(element) for element in normed_observations_std]
-    normed_actions_string_mean=[str(element) for element in normed_actions_mean]
-    normed_actions_string_std=[str(element) for element in normed_actions_std]
-    obs=[]
-    actions=[]
-    for a,b in zip(normed_observations_string_mean,normed_observations_string_std):
-        obs.append(a+' \u00B1 '+b)
-    for a,b in zip(normed_actions_string_mean,normed_actions_string_std):
-            actions.append(a+' \u00B1 '+b)
-    table=wandb.Table(columns=['obs_{i}'.format(i=index) for index in range(1,18)]+['act_{i}'.format(i=index) for index in range(1,7)], data=[obs+actions])
-    
-    # further datasets
-    for dataset2 in datasets:
-        normed_observations_mean=np.round(np.mean(dataset2.fields.normed_observations,axis=(0,1)),2)
-        normed_observations_std=np.round(np.std(dataset2.fields.normed_observations,axis=(0,1)),2)
-        normed_actions_mean=np.round(np.mean(dataset2.fields.normed_actions,axis=(0,1)),2)
-        normed_actions_std=np.round(np.std(dataset2.fields.normed_actions,axis=(0,1)),2)
-        normed_observations_string_mean=[str(element) for element in normed_observations_mean]
-        normed_observations_string_std=[str(element) for element in normed_observations_std]
-        normed_actions_string_mean=[str(element) for element in normed_actions_mean]
-        normed_actions_string_std=[str(element) for element in normed_actions_std]
-        obs=[]
-        actions=[]
-        for a,b in zip(normed_observations_string_mean,normed_observations_string_std):
-            obs.append(a+' \u00B1 '+b)
-        for a,b in zip(normed_actions_string_mean,normed_actions_string_std):
-            actions.append(a+' \u00B1 '+b)
-        second_row=obs+actions
-        table.add_data(*second_row)
-    wandb.log({'Dataset Statistics':table})
 #---------------------------------- setup ----------------------------------#
 parser=Parser()
 args = parser.parse_args('guided_learning')
@@ -66,6 +29,7 @@ def train(args,config=None):
     dataset_config = utils.Config(
         'datasets.Dataset_medium_replay_norm',
         savepath=(value_path, 'dataset_config.pkl'),
+        base_env=args.base_dataset,
         env=args.dataset,
         horizon=config.horizon, #changed
         normalizer=args.normalizer,
@@ -160,7 +124,7 @@ def train(args,config=None):
 
     args.diffusion_loadpath='diffusion/H{horizon}_T{n_diffusion_steps}'.format(horizon=config.horizon,n_diffusion_steps=args.n_diffusion_steps)
 
-    diffusion_experiment = utils.load_diffusion(args.logbase, 'halfcheetah-medium-replay-v2', args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
+    diffusion_experiment = utils.load_diffusion(args.logbase, args.base_dataset, args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
 
     value_experiment = utils.load_diffusion_learnt_reward( # changed this function, instead of just being load_diffusion()
         '', '', value_path,
@@ -212,7 +176,7 @@ def train(args,config=None):
 
     # dataset has 996000 4-step parts of trajectories. here we just select a subset
     #subset_indices=[i for i in range(968000//config.horizon)] # changed
-    subset_indices=[i for i in range(50000)]
+    #subset_indices=[i for i in range(50000)]
     #train_dataloader=DataLoader(dataset, batch_size=config.batch_size,num_workers=0,sampler=SubsetRandomSampler(subset_indices))# changed
     train_dataloader=DataLoader(dataset, batch_size=config.batch_size,num_workers=0,shuffle=True)
     # Arguments
@@ -337,10 +301,6 @@ def test(value_path,policy,diffusion_experiment,dataset,config=None,final=False,
 
     observation=envs.reset()
 
-
-    ## observations for rendering
-    rollout = [observation.copy()] #1st observation I think
-
     # Initialize arrays to store rewards for each environment
     total_rewards = np.zeros(num_envs)
     active_envs = np.ones(num_envs, dtype=bool)  # Track which environments are still running
@@ -359,16 +319,18 @@ def test(value_path,policy,diffusion_experiment,dataset,config=None,final=False,
         ## format current observation for conditioning (NO IMPAINTING)
         conditions = {0: conditioning_obs}
 
-
         #i think basically we take 1 step, and plan again every time! (in rollout image. in plan, it's just the plan at first step)
         action, unnorm_samples,_ = policy(conditions, batch_size=num_envs,diff_conditions=True,verbose=args.verbose)
 
         actions=torch.squeeze(unnorm_samples.actions[:,0,:]).detach().cpu().numpy()
         next_observation, reward, terminal, _ = envs.step(unnorm_samples.actions[:,0].detach().cpu().numpy())
 
-        # Update rewards only for active environments
-        total_rewards[active_envs] += reward[active_envs]
-        active_envs = ~terminal
+        # Only update rewards for environments that are still active and not terminal
+        active_and_not_terminal = active_envs & ~terminal
+        total_rewards[active_and_not_terminal] += reward[active_and_not_terminal]
+        
+        # Update active_envs to mark environments that have terminated
+        active_envs = active_envs & ~terminal
 
     # Calculate mean reward across all completed runs
     mean_reward = np.mean(total_rewards)
@@ -393,15 +355,10 @@ def initial_reward(diffusion_experiment,dataset,config=None):
 
     observation=envs.reset()
 
-
-    ## observations for rendering
-    rollout = [observation.copy()] #1st observation I think
-
     # Initialize arrays to store rewards for each environment
     total_rewards = np.zeros(num_envs)
     active_envs = np.ones(num_envs, dtype=bool)  # Track which environments are still running
     max_steps = 1000
-
 
     for t in range(max_steps):
         # Only process active environments
@@ -414,16 +371,18 @@ def initial_reward(diffusion_experiment,dataset,config=None):
         ## format current observation for conditioning (NO IMPAINTING)
         conditions = {0: conditioning_obs}
 
-
         #i think basically we take 1 step, and plan again every time! (in rollout image. in plan, it's just the plan at first step)
         action, unnorm_samples,_ = policy_unguided(conditions, batch_size=num_envs,diff_conditions=True,verbose=False)
 
         actions=torch.squeeze(unnorm_samples.actions[:,0,:]).detach().cpu().numpy()
         next_observation, reward, terminal, _ = envs.step(unnorm_samples.actions[:,0].detach().cpu().numpy())
 
-        # Update rewards only for active environments
-        total_rewards[active_envs] += reward[active_envs]
-        active_envs = ~terminal
+        # Only update rewards for environments that are still active and not terminal
+        active_and_not_terminal = active_envs & ~terminal
+        total_rewards[active_and_not_terminal] += reward[active_and_not_terminal]
+        
+        # Update active_envs to mark environments that have terminated
+        active_envs = active_envs & ~terminal
 
     # Calculate mean reward across all completed runs
     mean_reward = np.mean(total_rewards)
@@ -466,7 +425,7 @@ def run_hyperparameter_sweep():
             'values':[512]
         },
         'loss':{
-            'values':['MSE','MMD_Gauss','MMD_Matern']
+            'values':['MSE']
         },
         'optimizer':{
             'values':['Adam']
@@ -481,8 +440,7 @@ def run_hyperparameter_sweep():
     sweep_config['parameters']=parameters_dict
     import pprint
     pprint.pprint(sweep_config)
-    sweep_id=wandb.sweep(sweep_config,project='irl_halfcheetah_medium_replay')
+    sweep_id=wandb.sweep(sweep_config,project='irl_{env}'.format(env=args.base_dataset))
     wandb.agent(sweep_id,function=learning_reward,count=100)
 
 run_hyperparameter_sweep()
-    

@@ -377,10 +377,10 @@ class ValueFunction_Mujoco(nn.Module):
             SinusoidalPosEmb(self.horizon),
             nn.Linear(self.horizon, self.horizon * 4),
             nn.Mish(),
-            nn.Linear(self.horizon * self.horizon, 32),
+            nn.Linear(self.horizon*4, self.horizon),
         )
         if horizon==4:
-            self.fc1 = nn.Linear(23*4+32,64) #dimensions for umaze
+            self.fc1 = nn.Linear(23*self.horizon+self.horizon,64) #dimensions for umaze
             self.fc2 = nn.Linear(64,32) #dimensions for umaze
             self.fc3 = nn.Linear(32,1) #dimensions for umaze
             nn.init.xavier_normal_(self.fc1.weight)
@@ -389,7 +389,7 @@ class ValueFunction_Mujoco(nn.Module):
             #self.ln1=nn.LayerNorm(64)
             #self.ln2=nn.LayerNorm(32)
         elif horizon==32:
-            self.fc1 = nn.Linear(23*32+32,256) #dimensions for umaze
+            self.fc1 = nn.Linear(23*self.horizon+self.horizon,256) #dimensions for umaze
             self.fc2 = nn.Linear(256,128)
             self.fc3 = nn.Linear(128,1) #dimensions for umaze
             nn.init.xavier_normal_(self.fc1.weight)
@@ -398,7 +398,7 @@ class ValueFunction_Mujoco(nn.Module):
             #self.ln1=nn.LayerNorm(256)
             #self.ln2=nn.LayerNorm(128)
         else:
-            self.fc1 = nn.Linear(23*horizon+32,horizon*8) #dimensions for umaze
+            self.fc1 = nn.Linear(23*self.horizon+self.horizon,horizon*8) #dimensions for umaze
             self.fc2 = nn.Linear(horizon*8,horizon*4) #dimensions for umaze
             self.fc3 = nn.Linear(horizon*4,1) #dimensions for umaze
             #self.fc4 = nn.Linear(horizon*2,1) #dimensions for umaze
@@ -419,6 +419,72 @@ class ValueFunction_Mujoco(nn.Module):
 
         ## mask out first conditioning timestep, since this is not sampled by the model
         x[:, 6:, 0] = 0
+        #x = self.sin(x)
+
+        # NN to learn reward of function below
+
+        x=torch.flatten(x,start_dim=1) #changed this and the return a bit on 13th July
+        x=torch.cat((x,t),dim=-1)  
+        x = self.non_lin(self.fc1(x))
+        x = self.non_lin(self.fc2(x))
+        x = self.fc3(x)
+        #return torch.zeros
+        return x
+
+class ValueFunction_Hopper(nn.Module):
+    def __init__(
+        self,
+        horizon=32,
+        activation='ReLU'
+    ):
+        super().__init__()
+        self.horizon=horizon
+        self.time_mlp = nn.Sequential(
+            SinusoidalPosEmb(self.horizon),
+            nn.Linear(self.horizon, self.horizon * 4),
+            nn.Mish(),
+            nn.Linear(self.horizon*4, self.horizon),
+        )
+        if horizon==4:
+            self.fc1 = nn.Linear(14*self.horizon+self.horizon,64) #dimensions for umaze
+            self.fc2 = nn.Linear(64,32) #dimensions for umaze
+            self.fc3 = nn.Linear(32,1) #dimensions for umaze
+            nn.init.xavier_normal_(self.fc1.weight)
+            nn.init.xavier_normal_(self.fc2.weight)
+            nn.init.xavier_normal_(self.fc3.weight)
+            #self.ln1=nn.LayerNorm(64)
+            #self.ln2=nn.LayerNorm(32)
+        elif horizon==32:
+            self.fc1 = nn.Linear(14*self.horizon+self.horizon,256) #dimensions for umaze
+            self.fc2 = nn.Linear(256,128)
+            self.fc3 = nn.Linear(128,1) #dimensions for umaze
+            nn.init.xavier_normal_(self.fc1.weight)
+            nn.init.xavier_normal_(self.fc2.weight)
+            nn.init.xavier_normal_(self.fc3.weight)
+            #self.ln1=nn.LayerNorm(256)
+            #self.ln2=nn.LayerNorm(128)
+        else:
+            self.fc1 = nn.Linear(14*horizon+self.horizon,horizon*8) #dimensions for umaze
+            self.fc2 = nn.Linear(horizon*8,horizon*4) #dimensions for umaze
+            self.fc3 = nn.Linear(horizon*4,1) #dimensions for umaze
+            #self.fc4 = nn.Linear(horizon*2,1) #dimensions for umaze
+        if activation=='Tanh':
+            self.non_lin=torch.nn.Tanh()
+        elif activation=='LeakyReLU':
+            self.non_lin=torch.nn.LeakyReLU()
+        else:
+            self.non_lin=torch.nn.ReLU()
+        
+        
+    def forward(self, x, cond, time, *args):
+        '''
+            x : [ batch x horizon x transition ]
+        '''
+        t=self.time_mlp(time)
+        x = einops.rearrange(x, 'b h t -> b t h')
+
+        ## mask out first conditioning timestep, since this is not sampled by the model
+        x[:, 3:, 0] = 0
         #x = self.sin(x)
 
         # NN to learn reward of function below

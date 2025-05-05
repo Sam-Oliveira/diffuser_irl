@@ -22,7 +22,7 @@ args = Parser().parse_args('guided_learnt_reward')
 
 #---------------------------------- loading ----------------------------------#
 
-diffusion_experiment = utils.load_diffusion(args.logbase, 'halfcheetah-medium-replay-v2', args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
+diffusion_experiment = utils.load_diffusion(args.logbase, 'halfcheetah-expert-v2', args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
 
 value_experiment = utils.load_diffusion_learnt_reward(
     args.loadbase, args.dataset, args.value_loadpath,
@@ -95,7 +95,7 @@ trajectories=[]
 
 max_steps=env.max_episode_steps
 #max_steps=128
-max_steps=200
+max_steps=1000
 #max_steps=5
 learnt_trajectories=torch.empty((num_envs,max_steps,dataset.observation_dim+dataset.action_dim))
 for t in range(max_steps):
