@@ -21,7 +21,7 @@ import scipy
 This script loads trajectories from the base diffuser's dataset (for umaze or large maze) and calculates 
 the value of those trajectories under a certain (possibly learnt) reward model, saving these values (line 114).
 After values have been created for all algorithms, it calculates the ERC between the true reward model's values
-and a learnt reward function's values. 
+and a learnt reward function's values.
 """
 
 

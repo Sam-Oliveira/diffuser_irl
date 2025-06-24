@@ -32,15 +32,16 @@ class GuidedPolicy:
         trajectories = samples.trajectories
 
         ## extract action [ batch_size x horizon x transition_dim ]
-        actions = trajectories[:, :, :self.action_dim]
-        actions = self.normalizer.unnormalize(actions, 'actions')
+        actions_norm = trajectories[:, :, :self.action_dim]
+        actions = self.normalizer.unnormalize(actions_norm, 'actions')
         ## extract first action (of first element of batch)
         action = actions[0, 0]
 
         normed_observations = trajectories[:, :, self.action_dim:]
         observations = self.normalizer.unnormalize(normed_observations, 'observations')
         trajectories = Trajectories(actions, observations, samples.values)
-        return action, trajectories
+        normalized_trajectories = Trajectories(actions_norm, normed_observations, samples.values)
+        return action, trajectories,normalized_trajectories
 
     @property
     def device(self):
@@ -63,3 +64,5 @@ class GuidedPolicy:
                 'd -> repeat d', repeat=batch_size,
             )
         return conditions
+    
+

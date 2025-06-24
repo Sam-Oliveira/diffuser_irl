@@ -156,6 +156,23 @@ class Parser(Tap):
                 print(f'[ utils/setup ] Made savepath: {args.savepath}')
             self.save()
 
+    def mk_sweep_dir(self,args,config):
+        if 'logbase' in dir(args) and 'dataset' in dir(args) and 'exp_name' in dir(args):
+            args.new_path=''
+            if args.base_dataset:
+                args.new_path=args.base_dataset+"_"
+            for key,val in config.items():
+                args.new_path+='{h}_{f}_'.format(h=key,f=val)
+            args.value_path = os.path.join(args.logbase, args.dataset, args.new_path)
+            if mkdir(args.value_path):
+                print(f'[ utils/setup ] Made savepath: {args.value_path}')
+            
+            fullpath = os.path.join(args.value_path, 'args.json')
+            print(f'[ utils/setup ] Saved args to {fullpath}')
+            super().save(fullpath, skip_unpicklable=True)
+            self.value_path=args.value_path
+            return args.value_path
+
     def get_commit(self, args):
         args.commit = get_git_rev()
 

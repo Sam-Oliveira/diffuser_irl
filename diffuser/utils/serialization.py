@@ -98,6 +98,8 @@ def load_diffusion_learnt_reward(*loadpath, epoch='latest', device='cpu', seed=N
     renderer = render_config()
     model = model_config()
     diffusion = diffusion_config(model)
+    # In cluster, I chaned the line below to "trainer = trainer_config(model, dataset, renderer)" 
+    # I'm not sure why I changed it to that
     trainer = trainer_config(diffusion, dataset, renderer)
 
     if epoch == 'latest':

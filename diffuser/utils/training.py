@@ -136,7 +136,7 @@ class Trainer(object):
 
             self.step += 1
 
-    def save(self, epoch):
+    def save(self, epoch,diff_directory=None):
         '''
             saves model and ema to disk;
             syncs to storage bucket if a bucket is specified
@@ -146,7 +146,10 @@ class Trainer(object):
             'model': self.model.state_dict(),
             'ema': self.ema_model.state_dict()
         }
-        savepath = os.path.join(self.logdir, f'state_{epoch}.pt')
+        if diff_directory:
+            savepath = os.path.join(diff_directory, f'state_{epoch}.pt')
+        else:
+            savepath = os.path.join(self.logdir, f'state_{epoch}.pt')
         torch.save(data, savepath)
         print(f'[ utils/training ] Saved model to {savepath}', flush=True)
         if self.bucket is not None:
@@ -225,7 +228,7 @@ class Trainer(object):
             samples=samples.trajectories.detach()
 
             ## [ n_samples x horizon x observation_dim ]
-            normed_observations = trajectories[:, :, self.dataset.action_dim:]
+            normed_observations = samples[:, :, self.dataset.action_dim:]
 
             # [ 1 x 1 x observation_dim ]
             normed_conditions = batch.conditions[0][:,None]

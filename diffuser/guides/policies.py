@@ -21,11 +21,6 @@ class Policy:
         return parameters[0].device
 
     def _format_conditions(self, conditions, batch_size,diff_conditions=False):
-        conditions = utils.apply_dict(
-            self.normalizer.normalize,
-            conditions,
-            'observations',
-        )
         conditions = utils.to_torch(conditions, dtype=torch.float32, device='cpu')
         if diff_conditions:
             return conditions
@@ -37,7 +32,7 @@ class Policy:
             )
         return conditions
 
-    def __call__(self, conditions, debug=False, batch_size=1,diff_conditions=False):
+    def __call__(self, conditions, debug=False, batch_size=1,diff_conditions=False,verbose=False):
 
 
         conditions = self._format_conditions(conditions, batch_size,diff_conditions)
@@ -49,8 +44,8 @@ class Policy:
 
         ## extract action [ batch_size x horizon x transition_dim ]
 
-        actions = sample[:, :, :self.action_dim]
-        actions = self.normalizer.unnormalize(actions, 'actions')
+        actions_norm = sample[:, :, :self.action_dim]
+        actions = self.normalizer.unnormalize(actions_norm, 'actions')
 
         ## extract first action
         action = actions[0, 0]
@@ -61,4 +56,5 @@ class Policy:
 
 
         trajectories = Trajectories(actions, observations)
-        return action, trajectories
+        normalized_trajectories = Trajectories(actions_norm, normed_observations)
+        return action, trajectories,normalized_trajectories

@@ -5,7 +5,7 @@ from diffuser.guides.policies import Policy
 import diffuser.datasets as datasets
 import diffuser.utils as utils
 import diffuser.sampling as sampling
-
+from torch.utils.data import DataLoader
 
 class Parser(utils.Parser):
     dataset: str = 'halfcheetah-expert-v2'
@@ -25,7 +25,7 @@ args = Parser().parse_args('guided_plan')
 
 diffusion_experiment = utils.load_diffusion(args.logbase, 'halfcheetah-medium-replay-v2', args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
 
-value_experiment = utils.load_diffusion(
+value_experiment = utils.load_diffusion_learnt_reward(
     args.loadbase, args.dataset, args.value_loadpath,
     epoch=args.value_epoch, seed=args.env_seed,
 )
@@ -39,6 +39,7 @@ renderer = diffusion_experiment.renderer
 
 ## initialize value guide
 value_function = value_experiment.ema
+value_function.eval()
 
 #ValueGuide (guiddes.py) takes ValueFunction (temporal.py) as its model
 guide_config = utils.Config(args.guide, model=value_function, verbose=False)
@@ -60,7 +61,7 @@ policy_config = utils.Config(
     guide=guide,
     scale=args.scale,
     diffusion_model=diffusion,
-    normalizer=dataset.normalizer,
+    normalizer=diffusion_experiment.dataset.normalizer,
     preprocess_fns=args.preprocess_fns,
     sample_fn=sampling.n_step_guided_p_sample,
     n_guide_steps=args.n_guide_steps,

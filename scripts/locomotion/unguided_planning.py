@@ -12,11 +12,11 @@ import diffuser.datasets as datasets
 import diffuser.utils as utils
 import diffuser.sampling as sampling
 from torch.utils.data import DataLoader
-from diffuser.models.helpers import MMD
+from diffuser.models.helpers import MMD_loss
 from torch.utils.data import SubsetRandomSampler
 
 class Parser(utils.Parser):
-    dataset: str = 'halfcheetah-expert-v2'
+    dataset: str = 'halfcheetah-medium-replay-v2'
     config: str = 'config.locomotion'
 
 

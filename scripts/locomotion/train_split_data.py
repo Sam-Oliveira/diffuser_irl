@@ -1,24 +1,25 @@
+# Training base Diffuser but wwith split of dataset into two parts: part medium-replay and part expert
+# Almost same script as train.py but with split of dataset into two parts
 import diffuser.utils as utils
 import pdb
-
+import torch
 
 #-----------------------------------------------------------------------------#
 #----------------------------------- setup -----------------------------------#
 #-----------------------------------------------------------------------------#
 
 class Parser(utils.Parser):
-    dataset: str = 'maze2d-umaze-v1'
-    config: str = 'config.maze2d'
+    dataset: str = 'halfcheetah-medium-replay-v2'
+    config: str = 'config.locomotion'
 
-args = Parser().parse_args('diffusion')
-
+args = Parser().parse_args('diffusion_split_data')
 
 #-----------------------------------------------------------------------------#
 #---------------------------------- dataset ----------------------------------#
 #-----------------------------------------------------------------------------#
 
 dataset_config = utils.Config(
-    args.loader,
+    'datasets.SplitDataset',
     savepath=(args.savepath, 'dataset_config.pkl'),
     env=args.dataset,
     horizon=args.horizon,
@@ -26,6 +27,7 @@ dataset_config = utils.Config(
     preprocess_fns=args.preprocess_fns,
     use_padding=args.use_padding,
     max_path_length=args.max_path_length,
+    medium_replay_ratio=args.ratio,
 )
 
 render_config = utils.Config(
@@ -35,6 +37,7 @@ render_config = utils.Config(
 )
 
 dataset = dataset_config()
+
 renderer = render_config()
 
 observation_dim = dataset.observation_dim
@@ -52,7 +55,7 @@ model_config = utils.Config(
     transition_dim=observation_dim + action_dim,
     cond_dim=observation_dim,
     dim_mults=args.dim_mults,
-   # attention=args.attention,
+    attention=args.attention,
     device=args.device,
 )
 
@@ -109,6 +112,7 @@ utils.report_parameters(model)
 
 print('Testing forward...', end=' ', flush=True)
 batch = utils.batchify(dataset[0])
+print(batch)
 loss, _ = diffusion.loss(*batch)
 loss.backward()
 print('✓')
@@ -123,4 +127,3 @@ n_epochs = int(args.n_train_steps // args.n_steps_per_epoch)
 for i in range(n_epochs):
     print(f'Epoch {i} / {n_epochs} | {args.savepath}')
     trainer.train(n_train_steps=args.n_steps_per_epoch)
-

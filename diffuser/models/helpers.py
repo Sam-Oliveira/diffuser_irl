@@ -233,11 +233,12 @@ Losses = {
 # From https://github.com/jindongwang/transferlearning/blob/master/code/distance/mmd_pytorch.py
 class MMD_loss(nn.Module):
     
-    def __init__(self, kernel_mul = 2.0, kernel_num = 5):
+    def __init__(self, kernel='gaussian', kernel_mul = 2.0, kernel_num = 5):
         super(MMD_loss, self).__init__()
         self.kernel_num = kernel_num
         self.kernel_mul = kernel_mul
         self.fix_sigma = None
+        self.kernel = kernel
 
     def guassian_kernel(self, source, target, kernel_mul=2.0, kernel_num=5, fix_sigma=None):
         n_samples = int(source.size()[0])+int(target.size()[0])
@@ -263,7 +264,7 @@ class MMD_loss(nn.Module):
 
     def forward(self, source, target,kernel='gaussian'):
         batch_size = int(source.size()[0])
-        if kernel=='gaussian':
+        if self.kernel=='gaussian':
             kernels = self.guassian_kernel(source, target, kernel_mul=self.kernel_mul, kernel_num=self.kernel_num, fix_sigma=self.fix_sigma)
             XX = torch.mean(kernels[:batch_size, :batch_size])
             YY = torch.mean(kernels[batch_size:, batch_size:])
@@ -271,7 +272,7 @@ class MMD_loss(nn.Module):
             YX = torch.mean(kernels[batch_size:, :batch_size])
             loss = torch.mean(XX + YY - XY -YX)
             return loss
-        elif kernel=='matern':
+        elif self.kernel=='matern':
             K=self.matern_kernel(source,target,0.5)
             N=source.shape[0]
             M=target.shape[0]

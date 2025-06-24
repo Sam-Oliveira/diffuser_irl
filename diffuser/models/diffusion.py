@@ -4,7 +4,6 @@ import torch
 from torch import nn
 import pdb
 from collections import namedtuple
-from torchsummary import summary
 
 import diffuser.utils as utils
 from .helpers import (

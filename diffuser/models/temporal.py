@@ -230,6 +230,140 @@ class ValueFunction_4Layer_LargeMaze(nn.Module):
 
         return x
     
+class ValueFunction_Mujoco(nn.Module):
+    def __init__(
+        self,
+        horizon=4,
+        activation='ReLU'
+    ):
+        super().__init__()
+        self.horizon=horizon
+        self.time_mlp = nn.Sequential(
+            SinusoidalPosEmb(self.horizon),
+            nn.Linear(self.horizon, self.horizon * 4),
+            nn.Mish(),
+            nn.Linear(self.horizon*4, self.horizon),
+        )
+        if horizon==4:
+            self.fc1 = nn.Linear(23*self.horizon+self.horizon,64) #dimensions for umaze
+            self.fc2 = nn.Linear(64,32) #dimensions for umaze
+            self.fc3 = nn.Linear(32,1) #dimensions for umaze
+            nn.init.xavier_normal_(self.fc1.weight)
+            nn.init.xavier_normal_(self.fc2.weight)
+            nn.init.xavier_normal_(self.fc3.weight)
+            #self.ln1=nn.LayerNorm(64)
+            #self.ln2=nn.LayerNorm(32)
+        elif horizon==32:
+            self.fc1 = nn.Linear(23*self.horizon+self.horizon,256) #dimensions for umaze
+            self.fc2 = nn.Linear(256,128)
+            self.fc3 = nn.Linear(128,1) #dimensions for umaze
+            nn.init.xavier_normal_(self.fc1.weight)
+            nn.init.xavier_normal_(self.fc2.weight)
+            nn.init.xavier_normal_(self.fc3.weight)
+            #self.ln1=nn.LayerNorm(256)
+            #self.ln2=nn.LayerNorm(128)
+        else:
+            self.fc1 = nn.Linear(23*self.horizon+self.horizon,horizon*8) #dimensions for umaze
+            self.fc2 = nn.Linear(horizon*8,horizon*4) #dimensions for umaze
+            self.fc3 = nn.Linear(horizon*4,1) #dimensions for umaze
+            #self.fc4 = nn.Linear(horizon*2,1) #dimensions for umaze
+        if activation=='Tanh':
+            self.non_lin=torch.nn.Tanh()
+        elif activation=='LeakyReLU':
+            self.non_lin=torch.nn.LeakyReLU()
+        else:
+            self.non_lin=torch.nn.ReLU()
+        
+        
+    def forward(self, x, cond, time, *args):
+        '''
+            x : [ batch x horizon x transition ]
+        '''
+        t=self.time_mlp(time)
+        x = einops.rearrange(x, 'b h t -> b t h')
+
+        ## mask out first conditioning timestep, since this is not sampled by the model
+        x[:, 6:, 0] = 0
+        #x = self.sin(x)
+
+        # NN to learn reward of function below
+
+        x=torch.flatten(x,start_dim=1) #changed this and the return a bit on 13th July
+        x=torch.cat((x,t),dim=-1)  
+        x = self.non_lin(self.fc1(x))
+        x = self.non_lin(self.fc2(x))
+        x = self.fc3(x)
+        #return torch.zeros
+        return x
+    
+
+class ValueFunction_Hopper(nn.Module):
+    def __init__(
+        self,
+        horizon=32,
+        activation='ReLU'
+    ):
+        super().__init__()
+        self.horizon=horizon
+        self.time_mlp = nn.Sequential(
+            SinusoidalPosEmb(self.horizon),
+            nn.Linear(self.horizon, self.horizon * 4),
+            nn.Mish(),
+            nn.Linear(self.horizon*4, self.horizon),
+        )
+        if horizon==4:
+            self.fc1 = nn.Linear(14*self.horizon+self.horizon,64) #dimensions for umaze
+            self.fc2 = nn.Linear(64,32) #dimensions for umaze
+            self.fc3 = nn.Linear(32,1) #dimensions for umaze
+            nn.init.xavier_normal_(self.fc1.weight)
+            nn.init.xavier_normal_(self.fc2.weight)
+            nn.init.xavier_normal_(self.fc3.weight)
+            #self.ln1=nn.LayerNorm(64)
+            #self.ln2=nn.LayerNorm(32)
+        elif horizon==32:
+            self.fc1 = nn.Linear(14*self.horizon+self.horizon,256) #dimensions for umaze
+            self.fc2 = nn.Linear(256,128)
+            self.fc3 = nn.Linear(128,1) #dimensions for umaze
+            nn.init.xavier_normal_(self.fc1.weight)
+            nn.init.xavier_normal_(self.fc2.weight)
+            nn.init.xavier_normal_(self.fc3.weight)
+            #self.ln1=nn.LayerNorm(256)
+            #self.ln2=nn.LayerNorm(128)
+        else:
+            self.fc1 = nn.Linear(14*horizon+self.horizon,horizon*8) #dimensions for umaze
+            self.fc2 = nn.Linear(horizon*8,horizon*4) #dimensions for umaze
+            self.fc3 = nn.Linear(horizon*4,1) #dimensions for umaze
+            #self.fc4 = nn.Linear(horizon*2,1) #dimensions for umaze
+        if activation=='Tanh':
+            self.non_lin=torch.nn.Tanh()
+        elif activation=='LeakyReLU':
+            self.non_lin=torch.nn.LeakyReLU()
+        else:
+            self.non_lin=torch.nn.ReLU()
+        
+        
+    def forward(self, x, cond, time, *args):
+        '''
+            x : [ batch x horizon x transition ]
+        '''
+        t=self.time_mlp(time)
+        x = einops.rearrange(x, 'b h t -> b t h')
+
+        ## mask out first conditioning timestep, since this is not sampled by the model
+        x[:, 3:, 0] = 0
+        #x = self.sin(x)
+
+        # NN to learn reward of function below
+
+        x=torch.flatten(x,start_dim=1) #changed this and the return a bit on 13th July
+        x=torch.cat((x,t),dim=-1)  
+        x = self.non_lin(self.fc1(x))
+        x = self.non_lin(self.fc2(x))
+        x = self.fc3(x)
+        #return torch.zeros
+        return x
+
+    
 # True value model (5x x coordinate + 5x y coordinate) 
 class TrueReward(nn.Module):
     def __init__(
@@ -257,3 +391,93 @@ class TrueReward(nn.Module):
         x=torch.sum(x,dim=1)
         x=torch.sum(x,dim=1,keepdim=True)
         return 5*x
+
+
+class ValueFunction(nn.Module):
+
+    def __init__(
+        self,
+        horizon,
+        transition_dim,
+        cond_dim,
+        dim=32,
+        dim_mults=(1, 2, 4, 8),
+        out_dim=1,
+    ):
+        super().__init__()
+
+        dims = [transition_dim, *map(lambda m: dim * m, dim_mults)]
+        in_out = list(zip(dims[:-1], dims[1:]))
+
+        time_dim = dim
+        self.time_mlp = nn.Sequential(
+            SinusoidalPosEmb(dim),
+            nn.Linear(dim, dim * 4),
+            nn.Mish(),
+            nn.Linear(dim * 4, dim),
+        )
+
+        self.blocks = nn.ModuleList([])
+        num_resolutions = len(in_out)
+
+        print(in_out)
+        for ind, (dim_in, dim_out) in enumerate(in_out):
+            is_last = ind >= (num_resolutions - 1)
+
+            self.blocks.append(nn.ModuleList([
+                ResidualTemporalBlock(dim_in, dim_out, kernel_size=5, embed_dim=time_dim, horizon=horizon),
+                ResidualTemporalBlock(dim_out, dim_out, kernel_size=5, embed_dim=time_dim, horizon=horizon),
+                Downsample1d(dim_out)
+            ]))
+
+            if not is_last:
+                horizon = horizon // 2
+
+        mid_dim = dims[-1]
+        mid_dim_2 = mid_dim // 2
+        mid_dim_3 = mid_dim // 4
+        ##
+        self.mid_block1 = ResidualTemporalBlock(mid_dim, mid_dim_2, kernel_size=5, embed_dim=time_dim, horizon=horizon)
+        self.mid_down1 = Downsample1d(mid_dim_2)
+        horizon = horizon // 2
+        ##
+        self.mid_block2 = ResidualTemporalBlock(mid_dim_2, mid_dim_3, kernel_size=5, embed_dim=time_dim, horizon=horizon)
+        self.mid_down2 = Downsample1d(mid_dim_3)
+        horizon = horizon // 2
+        ##
+        fc_dim = mid_dim_3 * max(horizon, 1)
+
+        self.final_block = nn.Sequential(
+            nn.Linear(fc_dim + time_dim, fc_dim // 2),
+            nn.Mish(),
+            nn.Linear(fc_dim // 2, out_dim),
+        )
+
+    def forward(self, x, cond, time, *args):
+        '''
+            x : [ batch x horizon x transition ]
+        '''
+
+        x = einops.rearrange(x, 'b h t -> b t h')
+
+        ## mask out first conditioning timestep, since this is not sampled by the model
+        # x[:, :, 0] = 0
+
+        t = self.time_mlp(time)
+
+        for resnet, resnet2, downsample in self.blocks:
+            x = resnet(x, t)
+            x = resnet2(x, t)
+            x = downsample(x)
+
+        ##
+        x = self.mid_block1(x, t)
+        x = self.mid_down1(x)
+        ##
+        x = self.mid_block2(x, t)
+        x = self.mid_down2(x)
+        ##
+        x = x.view(len(x), -1)
+        out = self.final_block(torch.cat([x, t], dim=-1))
+        return out
+    

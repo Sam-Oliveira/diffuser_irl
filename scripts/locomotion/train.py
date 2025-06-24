@@ -1,6 +1,6 @@
 import diffuser.utils as utils
 import pdb
-
+import torch
 
 #-----------------------------------------------------------------------------#
 #----------------------------------- setup -----------------------------------#
@@ -58,6 +58,7 @@ model_config = utils.Config(
     transition_dim=observation_dim + action_dim,
     cond_dim=observation_dim,
     dim_mults=args.dim_mults,
+    attention=args.attention,
     device=args.device,
 )
 
