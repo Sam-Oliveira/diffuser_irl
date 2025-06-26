@@ -193,7 +193,7 @@ def train(args,config=None):
 
 
     policy_config = utils.Config(
-        'sampling.GuidedPolicy_norm', #changed this
+        'sampling.GuidedPolicy_normalized_input', #changed this
         guide=guide,
         scale=config.scale, #change
         diffusion_model=diffusion,

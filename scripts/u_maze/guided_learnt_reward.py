@@ -40,7 +40,7 @@ dataset = value_experiment.dataset
 renderer = diffusion_experiment.renderer
 
 ## initialize value guide
-value_function = value_experiment.ema
+value_function = value_experiment.model
 
 #ValueGuide (guiddes.py) takes ValueFunction (temporal.py) as its model
 guide_config = utils.Config(args.guide, model=value_function, verbose=False)
@@ -79,7 +79,7 @@ trajectories=[]
 value_function.model.eval()
 
 numb_steps=env.max_episode_steps
-numb_steps=300
+#numb_steps=300
 for t in range(numb_steps):
 
 

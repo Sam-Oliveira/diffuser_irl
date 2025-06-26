@@ -3,7 +3,7 @@ import numpy as np
 from os.path import join
 import pdb
 
-from diffuser.guides.policies import Policy
+from diffuser.guides.policies import Policy_unnormalized_input as Policy
 import diffuser.datasets as datasets
 import diffuser.utils as utils
 
@@ -55,7 +55,7 @@ for t in range(env.max_episode_steps):
     if t == 0:
         cond[0] = observation #so cond[0] is the start state. and cond [some index] is the goal state. they get fed to policy (diffuser/guides/policies.py). or gdiffuser/sampling/policies.py for main branch
         # this policy() call basically plans the entire thing based on initial and end state in "cond". Obviously will have to be adapted for guided planning.
-        action, samples = policy(cond, batch_size=args.batch_size)
+        action, samples,_ = policy(cond, batch_size=args.batch_size)
 
         actions = samples.actions[0].detach()
 

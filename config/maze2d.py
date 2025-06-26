@@ -157,7 +157,7 @@ base = {
 
     'guided_plan': {
         'guide': 'sampling.ValueGuide',
-        'policy': 'sampling.GuidedPolicy',
+        'policy': 'sampling.GuidedPolicy_unnormalized_input',
         'max_episode_length': 1000,
         'batch_size': 1,
         'preprocess_fns': [],
@@ -200,7 +200,7 @@ base = {
 
     'guided_learning': {
         'guide': 'sampling.ValueGuide',
-        'policy': 'sampling.GuidedPolicy',
+        'policy': 'sampling.GuidedPolicy_unnormalized_input',
         'max_episode_length': 1000,
         'batch_size': 1,
         'device': 'cpu',
@@ -248,7 +248,7 @@ base = {
 
     'guided_learnt_reward': {
         'guide': 'sampling.ValueGuide',
-        'policy': 'sampling.GuidedPolicy',
+        'policy': 'sampling.GuidedPolicy_unnormalized_input',
         'max_episode_length': 1000,
         'batch_size':1,
         'preprocess_fns': [],
@@ -290,7 +290,7 @@ base = {
     },
     'guided_learning_mmd': {
         'guide': 'sampling.ValueGuide',
-        'policy': 'sampling.GuidedPolicy',
+        'policy': 'sampling.GuidedPolicy_unnormalized_input',
         'max_episode_length': 1000,
         'batch_size': 1,
         'device': 'cpu',

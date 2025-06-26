@@ -44,7 +44,7 @@ dataset = value_experiment.dataset
 renderer = diffusion_experiment.renderer
 
 ## initialize value guide
-value_function = value_experiment.ema
+value_function = value_experiment.model
 
 #ValueGuide (guiddes.py) takes ValueFunction (temporal.py) as its model
 guide_config = utils.Config(args.guide, model=value_function, verbose=False)
@@ -52,7 +52,7 @@ guide = guide_config()
 
 ## policies are wrappers around an unconditional diffusion model and a value guide
 policy_config = utils.Config(
-    args.policy,
+    'guides.Policy_unnormalized_input',
     guide=guide,
     scale=args.scale,
     diffusion_model=diffusion,
@@ -113,7 +113,7 @@ numb_exp_trajectories=len(expert_trajectories)
         
 loss = torch.nn.MSELoss()
 
-optimizer = torch.optim.Adam(value_function.model.parameters(), lr=2e-4) #2e-2 for batch methods. 2e-4 if 1 opt step per datapoint
+optimizer = torch.optim.Adam(value_function.parameters(), lr=2e-4) #2e-2 for batch methods. 2e-4 if 1 opt step per datapoint
 
 
 
@@ -124,16 +124,22 @@ for e in range(epochs):
     terms=0
 
     size_batch=8
+
     train_dataloader = DataLoader(expert_trajectories, batch_size=size_batch, shuffle=False,num_workers=0)
     for targets in train_dataloader:
         observations=targets[:,0,2:]
         conditions={0:observations}
-        action,samples=policy(conditions,batch_size=observations.shape[0],diff_conditions=True,verbose=args.verbose)
+        action,unnormalized_samples,samples=policy(conditions,batch_size=observations.shape[0],diff_conditions=True,verbose=args.verbose)
 
         sample_actions=samples.actions[:,:step_size,:]
         sample_observations=samples.observations[:,:step_size,:]
 
         predictions=torch.cat((sample_actions,sample_observations),dim=-1) 
+        
+        #normalize and concatenate the targets
+        targets_obs_norm=policy.normalizer.normalize(targets[:,:step_size,2:], 'observations')
+        targets_actions_norm=policy.normalizer.normalize(targets[:,:step_size,:2], 'actions')
+        targets=torch.cat((targets_obs_norm,targets_actions_norm),dim=-1)
 
         loss_value=loss(torch.flatten(predictions,start_dim=1),torch.flatten(targets,start_dim=1))
 

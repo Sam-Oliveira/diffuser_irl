@@ -3,8 +3,6 @@ import numpy as np
 from os.path import join
 import pdb
 import torch
-
-from diffuser.guides.policies import Policy
 import diffuser.datasets as datasets
 import diffuser.utils as utils
 import diffuser.sampling as sampling
@@ -23,7 +21,7 @@ args = Parser().parse_args('guided_plan')
 
 diffusion_experiment = utils.load_diffusion(args.logbase, args.dataset, args.diffusion_loadpath, epoch=args.diffusion_epoch,seed=args.env_seed)
 
-value_experiment = utils.load_diffusion(
+value_experiment = utils.load_diffusion_learnt_reward(
     args.loadbase, args.dataset, args.value_loadpath,
     epoch=args.value_epoch, seed=args.env_seed,
 )
@@ -37,6 +35,7 @@ renderer = diffusion_experiment.renderer
 
 ## initialize value guide
 value_function = value_experiment.ema
+value_function.eval()
 
 #ValueGuide (guiddes.py) takes ValueFunction (temporal.py) as its model
 guide_config = utils.Config(args.guide, model=value_function, verbose=False)
@@ -89,7 +88,7 @@ for t in range(max_steps):
     conditions = {0: observation}
 
     #i think basically we take 1 step, and plan again every time! (in rollout image. in plan, it's just the plan at first step)
-    action, samples = policy(conditions, batch_size=args.batch_size, verbose=args.verbose)
+    action, samples,_ = policy(conditions, batch_size=args.batch_size, verbose=args.verbose)
 
     trajectories.append(np.concatenate((action.detach().numpy(),observation)))
 

@@ -220,7 +220,7 @@ base = {
 
     'guided_plan': {
         'guide': 'sampling.ValueGuide',
-        'policy': 'sampling.GuidedPolicy',
+        'policy': 'sampling.GuidedPolicy_unnormalized_input',
         'normalizer': 'GaussianNormalizer',
         'max_episode_length': 1000,
         'batch_size': 1,
@@ -271,7 +271,7 @@ base = {
         'renderer': 'utils.MuJoCoRenderer',
 
         'guide': 'sampling.ValueGuide',
-        'policy': 'sampling.GuidedPolicy',
+        'policy': 'sampling.GuidedPolicy_normalized_input',
         'max_episode_length': 1000,
         'batch_size': 64,
         'preprocess_fns': [],
@@ -354,7 +354,7 @@ base = {
 
     'guided_learnt_reward': {
         'guide': 'sampling.ValueGuide',
-        'policy': 'sampling.GuidedPolicy',
+        'policy': 'sampling.GuidedPolicy_unnormalized_input',
         #'normalizer': 'GaussianNormalizer',
         'max_episode_length': 1000,
         'batch_size': 1,

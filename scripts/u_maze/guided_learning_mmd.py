@@ -44,7 +44,7 @@ dataset = value_experiment.dataset
 renderer = diffusion_experiment.renderer
 
 ## initialize value guide
-value_function = value_experiment.ema
+value_function = value_experiment.model
 
 #ValueGuide (guiddes.py) takes ValueFunction (temporal.py) as its model
 guide_config = utils.Config(args.guide, model=value_function, verbose=False)
@@ -53,7 +53,7 @@ guide = guide_config()
 
 ## policies are wrappers around an unconditional diffusion model and a value guide
 policy_config = utils.Config(
-    args.policy,
+    'guides.Policy_unnormalized_input',
     guide=guide,
     scale=args.scale,
     diffusion_model=diffusion,
@@ -106,7 +106,7 @@ epochs=500
 n_samples_per_epoch=expert_trajectories.shape[0]
 numb_exp_trajectories=len(expert_trajectories)
 
-optimizer = torch.optim.Adam(value_function.model.parameters(), lr=2e-2)
+optimizer = torch.optim.Adam(value_function.parameters(), lr=2e-2)
 
 
 loss_array=[]
@@ -121,11 +121,15 @@ for e in range(epochs):
     for targets in train_dataloader:
         observations=targets[:,0,2:].detach().cpu()
         conditions={0:observations}
-        action,samples=policy(conditions,batch_size=observations.shape[0],diff_conditions=True,verbose=args.verbose)
+        action,unnormalized_samples,samples=policy(conditions,batch_size=observations.shape[0],diff_conditions=True,verbose=args.verbose)
         sample_actions=samples.actions[:,:step_size,:]
         sample_observations=samples.observations[:,:step_size,:]
 
         predictions=torch.cat((sample_actions,sample_observations),dim=-1) 
+        #normalize and concatenate the targets
+        targets_obs_norm=policy.normalizer.normalize(targets[:,:step_size,2:], 'observations')
+        targets_actions_norm=policy.normalizer.normalize(targets[:,:step_size,:2], 'actions')
+        targets=torch.cat((targets_obs_norm,targets_actions_norm),dim=-1)
 
         loss_value=loss(torch.flatten(predictions,start_dim=1),torch.flatten(targets,start_dim=1))
 
@@ -140,7 +144,7 @@ for e in range(epochs):
 
     loss_array.append(curr_loss/terms)
     if e%10==0 or e==epochs-1:
-        torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}.pt'.format(f=e+1))
+        torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/state_{f}.pt'.format(f=e+1))
 
     plt.figure()
     plt.plot(range(len(loss_array)),loss_array)
@@ -150,7 +154,7 @@ for e in range(epochs):
     plt.savefig(args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/loss_function_mmd.pdf',format="pdf", bbox_inches="tight")
 
 # NOTE: SAVE WITHOUT .model. so that the parameters have name model.fc.weight instead of fc.weight, and thus match what load() function in training.py expects! 
-torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/models/state_{f}.pt'.format(f=epochs))
+torch.save(value_function.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/state_{f}.pt'.format(f=epochs))
 
 
 plt.figure()

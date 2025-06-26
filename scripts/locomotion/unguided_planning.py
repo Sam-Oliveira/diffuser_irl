@@ -7,7 +7,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from diffuser.guides.policies import Policy
+from diffuser.guides.policies import Policy_unnormalized_input as Policy
 import diffuser.datasets as datasets
 import diffuser.utils as utils
 import diffuser.sampling as sampling

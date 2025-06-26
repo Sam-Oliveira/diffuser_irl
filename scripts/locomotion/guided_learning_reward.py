@@ -55,7 +55,7 @@ guide = guide_config()
 
 ## policies are wrappers around an unconditional diffusion model and a value guide
 policy_config = utils.Config(
-    args.policy,
+    'sampling.GuidedPolicy_normalized_input',
     guide=guide,
     scale=args.scale,
     diffusion_model=diffusion,

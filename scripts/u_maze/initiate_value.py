@@ -95,7 +95,8 @@ model = model_config()
 
 diffusion = diffusion_config(model)
 
-trainer = trainer_config(diffusion, dataset, renderer)
+# changed this from "diffusion" to "model" because it was like that in locomotion
+trainer = trainer_config(model, dataset, renderer)
 
 #-----------------------------------------------------------------------------#
 #------------------------ test forward & backward pass -----------------------#
@@ -114,4 +115,5 @@ print('✓')
 #-----------------------------------------------------------------------------#
 
 # Just save untrained model checkpoint
-trainer.save(0)
+# Just save untrained model checkpoint
+trainer.save(model.state_dict(),args.logbase+'/'+args.dataset+'/'+args.value_loadpath+'/'+'state_0.pt')

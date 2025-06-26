@@ -57,7 +57,7 @@ logger_config = utils.Config(
 
 ## policies are wrappers around an unconditional diffusion model and a value guide
 policy_config = utils.Config(
-    args.policy,
+    'sampling.GuidedPolicy_normalized_input',
     guide=guide,
     scale=args.scale,
     diffusion_model=diffusion,
@@ -97,7 +97,7 @@ for t in range(max_steps):
     conditions = {0: observation}
     
     #i think basically we take 1 step, and plan again every time! (in rollout image. in plan, it's just the plan at first step)
-    action, samples = policy(conditions, batch_size=args.batch_size, verbose=args.verbose)
+    action, samples,_ = policy(conditions, batch_size=args.batch_size, verbose=args.verbose)
 
 
     trajectories.append(np.concatenate((action.detach().cpu().numpy(),observation)))
